@@ -1,6 +1,6 @@
 # Project brief: Orbit Watch
 
-**User:** the operations lead of a 66-satellite communications constellation in low Earth orbit (real public orbits of Iridium NEXT: 80 objects incl. spares, 6 orbital planes, ~777 km).
+**User:** the operations lead of an 80-satellite communications fleet in low Earth orbit (real public orbits of Iridium NEXT: 67 operational at ~777 km + 13 spares, 6 orbital planes).
 **Decision:** which satellites need a collision-avoidance maneuver in the next 30 days, and where to spend a limited fuel budget.
 
 ## Three connected questions

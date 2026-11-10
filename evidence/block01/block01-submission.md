@@ -5,7 +5,7 @@ App repo: https://github.com/Nickk753/orbit-watch
 ## Exercise 01: Choose a topic and a decision
 **Screenshot:** ex1_brief.png
 **Reasoning & evidence:**
-Topic: satellite collision risk. User: the operations lead of a 66-satellite LEO communications constellation (real Iridium NEXT orbits). Decision: which satellites need an avoidance maneuver in the next 30 days, and where to spend the fuel budget.
+Topic: satellite collision risk. User: the operations lead of an 80-satellite LEO communications fleet (real Iridium NEXT orbits: 67 operational + 13 spares, 6 planes). Decision: which satellites need an avoidance maneuver in the next 30 days, and where to spend the fuel budget.
 Three questions: (1) Is collision risk rising and how many maneuvers will we need this month? (2) Which orbital planes, altitude bands and debris clouds drive it? (3) Which specific close approaches need action now, and what is the evidence?
 Prompt excerpt: "Act as my analytics product partner. My topic is satellite collision risk, my user is a satellite operations lead and their decision is which satellites need avoidance maneuvers this month. Help me sharpen three questions spanning overview, diagnosis and record detail. Ask up to three clarifying questions, propose two approaches and the minimum data each needs. Do not build the app yet."
 Approaches: A = compute real close approaches with SGP4 (needs covariance that is not public, hours of compute, hard to verify). B = real orbits + seeded synthetic events (chosen: reproducible, every KPI reconciles).
@@ -37,3 +37,6 @@ I calculated each KPI directly from the source CSVs and through the Supabase mod
 Example: last 30 days, whole fleet: 1,258 close approaches, 5 high risk, high-risk share 0.40 % in both, difference 0.
 Discrepancy found and resolved: the first run differed by 0.01 on "close approaches per satellite" (15.72 vs 15.73). Numerator and denominator matched exactly. The cause was rounding (Python rounds half to even, Postgres half away from zero). I fixed the source calculation, not the KPI definition. Final result: all differences 0.
 Frozen contract: docs/data-dictionary.md, docs/semantic-model.png, docs/kpi-contract.md (v1.0), docs/validation.md.
+
+## App URL (use in every exercise's evidence links)
+https://orbit-watch-rosy.vercel.app
