@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Orbit Watch</title>
+  <meta name="description" content="Collision-risk overview for the Iridium NEXT fleet. Real orbits, synthetic close-approach events." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='7' fill='%233987e5'/><ellipse cx='16' cy='16' rx='14' ry='5' fill='none' stroke='%23f0efec' stroke-width='2' transform='rotate(-25 16 16)'/></svg>" />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <div id="app">
+    <section id="globe-wrap" aria-label="3D globe of the fleet and nearby objects">
+      <div id="globe"></div>
+      <div class="globe-hud">
+        <div class="legend" aria-label="Globe legend">
+          <span><i class="dot" style="background:var(--critical)"></i>High risk</span>
+          <span><i class="dot" style="background:var(--warning)"></i>Medium</span>
+          <span><i class="dot" style="background:var(--sat-low)"></i>Low / none</span>
+          <span><i class="dot small" style="background:var(--debris)"></i>Tracked objects</span>
+        </div>
+        <div class="clock"><span id="clock">--</span> UTC · <button id="speed" class="link">30× speed</button></div>
+      </div>
+      <div id="selection" class="selection hidden" role="status"></div>
+    </section>
+
+    <aside id="panel" aria-label="Overview panel">
+      <header class="panel-head">
+        <div>
+          <h1>Orbit Watch</h1>
+          <p class="sub">Collision risk · Iridium NEXT fleet (80 satellites, 6 planes)</p>
+        </div>
+        <span class="badge" title="Orbits: CelesTrak GP data, 10 Nov 2026. Close approaches and maneuvers: synthetic, seed 20261110.">Real orbits · synthetic events</span>
+      </header>
+
+      <div class="filters" role="group" aria-label="Filters">
+        <div class="seg" id="period" role="tablist">
+          <button data-p="next30" class="on">Next 30 days</button>
+          <button data-p="last30">Last 30 days</button>
+        </div>
+        <label class="select">Plane
+          <select id="plane">
+            <option value="">All</option>
+            <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option>
+          </select>
+        </label>
+        <button id="reset" class="link">Reset</button>
+      </div>
+      <p class="period-note" id="period-note"></p>
+
+      <div id="decision" class="decision"></div>
+      <div id="kpis" class="kpis"></div>
+
+      <section class="card">
+        <h2>Elevated-risk close approaches per week</h2>
+        <p class="hint">High + medium risk (Pc ≥ 1 in 100,000). Lighter bars are the forecast.</p>
+        <div id="weekly" class="chart"></div>
+      </section>
+
+      <section class="card">
+        <h2>Where the risk comes from</h2>
+        <p class="hint">Elevated-risk close approaches in the selected period, by source of the other object.</p>
+        <div id="sources" class="chart"></div>
+      </section>
+
+      <section class="card">
+        <h2>Most probable close approaches</h2>
+        <p class="hint">Top 10 by probability of collision. Click a row to fly to it.</p>
+        <div id="top" class="toplist"></div>
+      </section>
+
+      <footer class="foot">
+        Orbits: <a href="https://celestrak.org" target="_blank" rel="noopener">CelesTrak</a> GP data, snapshot 10 Nov 2026 (real).
+        Close approaches and maneuvers are <b>synthetic</b> (seeded generator, seed 20261110) for a course project.
+        As-of date 10 Nov 2026. <a href="https://github.com/Nickk753/orbit-watch" target="_blank" rel="noopener">Method and code</a>
+      </footer>
+    </aside>
+  </div>
+  <div id="loading" class="overlay"><div class="spinner"></div><p>Loading orbits and close approaches…</p></div>
+  <div id="error" class="overlay hidden"><p id="error-msg"></p><button id="retry">Try again</button></div>
+  <div id="tip" class="tip hidden" role="tooltip"></div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
