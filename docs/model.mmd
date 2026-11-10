@@ -1,0 +1,61 @@
+erDiagram
+    dim_satellite ||--o{ fact_conjunction : "1 satellite : many close approaches"
+    dim_object    ||--o{ fact_conjunction : "1 object : many close approaches"
+    dim_date      ||--o{ fact_conjunction : "1 day : many (tca_date)"
+    dim_risk_tier ||--o{ fact_conjunction : "1 tier : many"
+    dim_satellite ||--o{ fact_maneuver    : "1 satellite : many burns"
+    dim_date      ||--o{ fact_maneuver    : "1 day : many (maneuver_date)"
+    fact_conjunction |o--o| fact_maneuver : "0..1 trigger (unique FK, never joined for KPIs)"
+
+    dim_satellite {
+        int satellite_id PK "NORAD id, REAL"
+        text name
+        smallint plane "orbital plane 1-6"
+        text role "Operational / Spare"
+        numeric mean_altitude_km
+        text altitude_band
+        float orbital_elements "epoch, mean motion, incl, RAAN..."
+    }
+    dim_object {
+        int object_id PK "NORAD id, REAL"
+        text name
+        text object_type "Debris / Rocket body / Payload"
+        text source_group "e.g. FENGYUN 1C debris"
+        numeric perigee_km
+        numeric apogee_km
+        text altitude_band
+    }
+    dim_date {
+        date date_key PK
+        smallint month
+        smallint iso_week
+        text period "History / Forecast"
+        text rolling_window "Last 30 / Previous 30 / Next 30"
+    }
+    dim_risk_tier {
+        text risk_tier PK "High / Medium / Low"
+        float min_pc
+        float max_pc
+    }
+    fact_conjunction {
+        text conjunction_id PK "grain: 1 close approach, SYNTHETIC"
+        int satellite_id FK
+        int object_id FK
+        date tca_date FK
+        text risk_tier FK
+        timestamptz tca_utc
+        numeric miss_distance_m
+        numeric relative_velocity_kms
+        float pc "probability of collision"
+        text status
+    }
+    fact_maneuver {
+        text maneuver_id PK "grain: 1 burn, SYNTHETIC"
+        int satellite_id FK
+        date maneuver_date FK
+        text conjunction_id FK "nullable, unique"
+        text maneuver_type
+        numeric delta_v_cm_s
+        numeric fuel_kg
+        text status
+    }
