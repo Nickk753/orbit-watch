@@ -20,3 +20,5 @@
 
 **Why B:** public data has no covariance, so real probabilities cannot be computed honestly either way. B keeps geometry and population real, labels events synthetic, and lets every number be verified.
 **Scope choice:** dropped an "operator / country" dimension and a per-object "launch cost" view, because neither changes the maneuver decision. The 3D globe stays as the overview hero because location and orbit plane are what an operator reasons with.
+
+**Prompt excerpt:** "Act as my analytics product partner. My topic is satellite collision risk, my user is a satellite operations lead and their decision is which satellites need avoidance maneuvers this month. Help me sharpen three questions spanning overview, diagnosis and record detail. Ask up to three clarifying questions, propose two approaches and the minimum data each needs. Do not build the app yet."

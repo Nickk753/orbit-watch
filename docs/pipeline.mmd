@@ -1,0 +1,15 @@
+flowchart LR
+    A["CelesTrak GP data<br/>REAL orbits<br/>Iridium NEXT + 3,687 objects<br/>snapshot 10 Nov 2026"] --> B["pipeline/generate.py<br/>seed 20261110<br/>+ SYNTHETIC close approaches<br/>and maneuvers"]
+    B --> C["data/model/*.csv<br/>6 star-schema tables"]
+    C --> D["pipeline/checks.py<br/>keys · nulls · orphans · ranges<br/>ALL PASS"]
+    D --> E["Supabase Postgres<br/>tables + PK/FK<br/>RLS read-only"]
+    E --> F["Semantic layer<br/>v_conjunction view<br/>kpi_summary() function"]
+    F --> G["pipeline/validate.py<br/>source vs model<br/>difference 0"]
+    F --> H["Orbit Watch app<br/>Vite + Globe.gl + satellite.js<br/>Vercel: orbit-watch-rosy.vercel.app"]
+    I["GitHub<br/>Nickk753/orbit-watch"] -. push deploys .-> H
+    classDef real fill:#e8f6ef,stroke:#1baf7a,color:#123;
+    classDef syn fill:#fff3e0,stroke:#e0a040,color:#321;
+    classDef db fill:#e6f0fb,stroke:#2a78d6,color:#123;
+    class A real
+    class B,C syn
+    class E,F db
