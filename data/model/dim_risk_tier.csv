@@ -1,0 +1,4 @@
+risk_tier,min_pc,max_pc,sort_order,meaning
+High,0.0001,1.0,1,Pc >= 1e-4: maneuver review required
+Medium,1e-05,0.0001,2,"1e-5 <= Pc < 1e-4: watch, refine with new tracking"
+Low,0.0,1e-05,3,Pc < 1e-5: no action
