@@ -60,6 +60,9 @@
       </div>
       <p class="period-note" id="period-note"></p>
 
+      <nav class="crumbs-bar hidden" id="crumbs" aria-label="Breadcrumb"></nav>
+
+      <div id="view-overview" class="view">
       <nav class="tabs" role="tablist" aria-label="Panel sections">
         <button role="tab" data-t="overview" class="on" aria-selected="true">Overview</button>
         <button role="tab" data-t="charts" aria-selected="false">Charts</button>
@@ -79,6 +82,11 @@
           <dt>Comparison</dt><dd>Same filters over the 30 days just before the selected period.</dd>
         </dl>
       </details>
+      <div class="investigate">
+        <p class="inv-title">Investigate</p>
+        <button class="inv" data-go-view="where"><b>Where is the risk concentrated?</b><span>By plane and satellite, with denominators →</span></button>
+        <button class="inv" data-go-view="why"><b>What might explain the change?</b><span>Closer approaches or more of them? By debris source and month →</span></button>
+      </div>
       <button class="link more" data-go="top">See the most probable close approaches →</button>
       </div>
 
@@ -109,6 +117,11 @@
         <div id="top" class="toplist"></div>
       </section>
       </div>
+
+      </div><!-- /view-overview -->
+
+      <div id="view-where" class="view hidden"></div>
+      <div id="view-why" class="view hidden"></div>
 
       <footer class="foot">
         Orbits: <a href="https://celestrak.org" target="_blank" rel="noopener">CelesTrak</a> GP data, snapshot 10 Nov 2026 (real).

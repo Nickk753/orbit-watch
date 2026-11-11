@@ -1,0 +1,23 @@
+flowchart LR
+    F["<b>Global filters</b> (stay on every screen)<br/>period · plane · other object<br/>+ 'Showing' chips + Reset"]
+    L1["<b>Overview</b><br/>decision line + 4 KPIs<br/>'Investigate' buttons"]
+    A["<b>View A · #where</b><br/>Where is the risk concentrated?<br/>local: selected plane"]
+    B["<b>View B · #why</b><br/>What might explain the change?<br/>local: selected source"]
+    R["<b>Record detail</b><br/>one close approach<br/>(card on the globe)"]
+    F -.-> L1
+    L1 -- "Investigate: Where" --> A
+    L1 -- "Investigate: Why / click a chart" --> B
+    A -- "plane → satellite row" --> R
+    B -- "source → event row" --> R
+    L1 -- "Top risks row" --> R
+    A -- "breadcrumb / Back / browser back" --> L1
+    B -- "breadcrumb / Back / browser back" --> L1
+    R -- "Back to fleet (view kept)" --> A
+    classDef g fill:#eef1f6,stroke:#8a96aa,color:#123;
+    classDef l1 fill:#e6f0fb,stroke:#2a78d6,color:#123;
+    classDef l2 fill:#fff3e0,stroke:#e0a040,color:#321;
+    classDef l3 fill:#fbe4e4,stroke:#c33,color:#311;
+    class F g
+    class L1 l1
+    class A,B l2
+    class R l3

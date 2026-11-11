@@ -151,8 +151,10 @@ function updatePositions() {
   const worst = satTiers();
   const fleet = [];
   meshes.clear();
+  const fp = state.view === 'where' ? state.focusPlane : null;
   for (const s of DATA.sats) {
     if (state.plane && s.plane !== state.plane) continue;
+    if (fp && s.plane !== fp) continue;
     const g = geo(s.rec, now);
     if (!g) continue;
     const t = worst.get(s.satellite_id) || 'Low';
@@ -205,8 +207,10 @@ function updateOrbits() {
   const now = new Date(simTime);
   const worst = satTiers();
   const paths = [];
+  const fp = state.view === 'where' ? state.focusPlane : null;
   for (const s of DATA.sats) {
     if (state.plane && s.plane !== state.plane) continue;
+    if (fp && s.plane !== fp) continue;
     const sel = state.selSat === s.satellite_id;
     const t = worst.get(s.satellite_id) || 'Low';
     const base = t === 'High' ? 'rgba(208,59,59,0.55)' : t === 'Medium' ? 'rgba(250,178,25,0.30)' : 'rgba(158,197,244,0.16)';
@@ -416,6 +420,7 @@ function select({ sat: id = null, conj = null }) {
     if (g) world.pointOfView({ lat: g.lat, lng: g.lng, altitude: 1.4 }, 1200);
   }
   renderSelection(); renderTop(); updateOrbits(); updatePositions();
+  if (state.view === 'where') renderPlaneSats();
 }
 
 async function renderAll() {
@@ -426,6 +431,8 @@ async function renderAll() {
   document.getElementById('reset').classList.toggle('hidden', state.period === 'next30' && !state.plane && !state.objType);
   document.getElementById('period-note').textContent = `Compared with ${p.cmpLabel} (${d(p.cmpStart)}–${d(p.cmpEnd)}), same filters. Data as of ${d(AS_OF)} 2026: real orbits (CelesTrak), synthetic close approaches.`;
   renderDecision(); renderWeekly(); renderSources(); renderTop(); renderSelection(); updateOrbits(); updatePositions();
+  if (state.view === 'where') renderWhere();
+  if (state.view === 'why') renderWhy();
   try { await renderKpis(); } catch (e) { document.getElementById('kpis').innerHTML = `<p class="empty">KPIs could not load (${e.message}).</p>`; }
 }
 
@@ -435,9 +442,9 @@ function bindUi() {
     state.period = b.dataset.p; renderAll();
   }));
   document.getElementById('objtype').addEventListener('change', (e) => { state.objType = e.target.value || null; state.selSat = null; state.selConj = null; renderAll(); });
-  document.getElementById('plane').addEventListener('change', (e) => { state.plane = e.target.value ? +e.target.value : null; state.selSat = null; state.selConj = null; renderAll(); });
+  document.getElementById('plane').addEventListener('change', (e) => { state.plane = e.target.value ? +e.target.value : null; state.focusPlane = state.plane; state.selSat = null; state.selConj = null; renderAll(); });
   document.getElementById('reset').addEventListener('click', () => {
-    state.period = 'next30'; state.plane = null; state.objType = null; state.selSat = null; state.selConj = null;
+    state.period = 'next30'; state.plane = null; state.objType = null; state.focusPlane = null; state.whySource = null; state.selSat = null; state.selConj = null;
     document.getElementById('plane').value = ''; document.getElementById('objtype').value = '';
     document.querySelectorAll('#period button').forEach((x) => x.classList.toggle('on', x.dataset.p === 'next30'));
     world.pointOfView({ lat: 25, lng: -40, altitude: 2.6 }, 1000);
@@ -449,6 +456,9 @@ function bindUi() {
   });
   document.querySelectorAll('.tabs button').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.t)));
   document.querySelector('.more').addEventListener('click', () => showTab('top'));
+  document.querySelectorAll('[data-go-view]').forEach((b) => b.addEventListener('click', () => go(b.dataset.goView)));
+  document.getElementById('sources').addEventListener('click', () => go('why'));
+  document.getElementById('weekly').addEventListener('click', () => go('why'));
 }
 
 async function start() {
@@ -458,6 +468,7 @@ async function start() {
     DATA = await load();
     if (!world) { initGlobe(); bindUi(); requestAnimationFrame(animate); setInterval(updateSlowLayers, 1000); setInterval(updateParticles, 200); setInterval(updateOrbits, 30000); }
     await renderAll();
+    if (location.hash.length > 1) go(location.hash.slice(1), false);
     document.getElementById('loading').classList.add('hidden');
   } catch (e) {
     console.error(e);
@@ -469,3 +480,192 @@ async function start() {
 // bound here, not in bindUi(): bindUi only runs after a first successful load, so a first-load failure left Retry dead
 document.getElementById('retry').addEventListener('click', start);
 start();
+
+// ---------- Level 2 · diagnostic views ----------
+const VIEWS = { overview: 'Overview', where: 'Where is the risk concentrated?', why: 'What might explain the change?' };
+state.view = 'overview'; state.focusPlane = null; state.whySource = null;
+const isEl = (c) => c.risk_tier !== 'Low';
+const objOk = (c) => !state.objType || c.object_type === state.objType;
+const inWin = (c, a, b) => c.tca_date >= a && c.tca_date <= b;
+const pct = (a, b) => (b ? `${a >= b ? '+' : '−'}${Math.abs(Math.round((100 * (a - b)) / b))}%` : 'n/a');
+const srcLabel = (k) => k.replace('FENGYUN 1C', 'Fengyun-1C').replace('COSMOS 2251', 'Cosmos 2251').replace('IRIDIUM 33', 'Iridium 33');
+const dd = (x) => new Date(`${x}T00:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+
+function go(view, push = true) {
+  if (!VIEWS[view]) view = 'overview';
+  const was = state.view;
+  state.view = view;
+  if (push && was !== view) history.pushState({ view }, '', view === 'overview' ? location.pathname : `#${view}`);
+  ['overview', 'where', 'why'].forEach((v) => document.getElementById(`view-${v}`).classList.toggle('hidden', v !== view));
+  document.getElementById('app').classList.toggle('wide', view !== 'overview');
+  const cr = document.getElementById('crumbs');
+  if (view === 'overview') { cr.classList.add('hidden'); cr.innerHTML = ''; }
+  else {
+    cr.classList.remove('hidden');
+    cr.innerHTML = `<button class="link" id="crumb-home">Overview</button><span aria-hidden="true">›</span><span aria-current="page">${VIEWS[view]}</span>
+      <button class="back" id="crumb-back">← Back to overview</button>`;
+    document.getElementById('crumb-home').onclick = () => go('overview');
+    document.getElementById('crumb-back').onclick = () => go('overview');
+  }
+  if (view === 'where') { if (state.plane) state.focusPlane = state.plane; renderWhere(); }
+  if (view === 'why') renderWhy();
+  updateOrbits(); updatePositions();
+  window.dispatchEvent(new Event('resize'));
+  document.getElementById('panel').scrollTop = 0;
+  if (view !== 'overview') document.getElementById('crumb-back').focus({ preventScroll: true });
+}
+window.addEventListener('popstate', () => go(location.hash.slice(1) || 'overview', false));
+
+function bar(v, max, cls = '') { return `<span class="hbar ${cls}" style="width:${max ? Math.max((100 * v) / max, v ? 1.5 : 0) : 0}%"></span>`; }
+
+async function renderWhere() {
+  const p = PERIODS[state.period];
+  const el = document.getElementById('view-where');
+  const rows = [1, 2, 3, 4, 5, 6].map((pl) => {
+    const n = DATA.sats.filter((s) => s.plane === pl).length;
+    const cur = DATA.conj.filter((c) => c.plane === pl && objOk(c) && inWin(c, p.start, p.end));
+    const cmp = DATA.conj.filter((c) => c.plane === pl && objOk(c) && inWin(c, p.cmpStart, p.cmpEnd));
+    return { pl, n, ca: cur.length, el: cur.filter(isEl).length, hi: cur.filter((c) => c.risk_tier === 'High').length,
+      elCmp: cmp.filter(isEl).length, pc: cur.reduce((a, c) => a + c.pc, 0) };
+  });
+  const N = rows.reduce((a, r) => a + r.n, 0), EL = rows.reduce((a, r) => a + r.el, 0), CA = rows.reduce((a, r) => a + r.ca, 0);
+  const ELC = rows.reduce((a, r) => a + r.elCmp, 0);
+  rows.forEach((r) => { r.rate = r.el / r.n; r.rateCmp = r.elCmp / r.n; r.idx = EL ? (r.el / EL) / (r.n / N) : 0; });
+  rows.sort((a, b) => b.rate - a.rate || a.pl - b.pl);
+  const fleetRate = EL / N;
+  const max = Math.max(...rows.map((r) => Math.max(r.rate, r.rateCmp)), 0.01);
+  const fp = state.focusPlane;
+  const top = rows[0];
+  const scope = state.objType ? `${OBJ_LABEL[state.objType]} only` : 'all objects';
+
+  if (!EL) {
+    el.innerHTML = `<h2 class="view-title">${VIEWS.where}</h2><div class="empty-state"><b>Nothing to rank: no elevated-risk close approaches match these filters.</b><br/>${p.label}, ${scope}: ${CA} close approach${CA === 1 ? '' : 'es'} in total, none high or medium risk, so plane shares and rates are not shown (they would read 0% or NaN). <button class="link" data-reset>Reset filters</button> or choose <b>Other object: All</b>.</div>`;
+    el.querySelector('[data-reset]').onclick = () => document.getElementById('reset').click();
+    return;
+  }
+  el.innerHTML = `
+    <h2 class="view-title">${VIEWS.where}</h2>
+    <p class="hint">Elevated-risk close approaches (high + medium) <b>per satellite</b>, by orbital plane · ${p.label} (${dd(p.start)}–${dd(p.end)}) vs ${p.cmpLabel} · ${scope}. Click a plane to see its satellites.</p>
+    <p class="chart-summary" id="where-summary">Plane ${top.pl} has the most per satellite: ${top.el} elevated-risk close approaches on ${top.n} satellites (${fmt(top.rate, 1)} each, fleet ${fmt(fleetRate, 1)}). That is ${Math.round((100 * top.el) / EL)}% of the fleet's ${EL} with ${Math.round((100 * top.n) / N)}% of its satellites (${fmt(top.idx, 2)}× its fair share). ${p.cmpLabel[0].toUpperCase() + p.cmpLabel.slice(1)}: ${top.elCmp} (${fmt(top.rateCmp, 1)} each).</p>
+    <div class="planes" role="list">
+      ${rows.map((r) => `<button class="plane-row ${fp === r.pl ? 'sel' : ''}" data-pl="${r.pl}" role="listitem" aria-pressed="${fp === r.pl}">
+        <span class="pl-name">Plane ${r.pl}<small>${r.n} satellites</small></span>
+        <span class="pl-bars"><span class="track">${bar(r.rate, max)}<span class="cmp-mark" style="left:${(100 * r.rateCmp) / max}%" title="${p.cmpLabel}"></span><span class="fleet-mark" style="left:${(100 * fleetRate) / max}%"></span></span></span>
+        <span class="pl-val"><b>${fmt(r.rate, 1)}</b> / sat<small>${r.el} of ${r.ca} · was ${fmt(r.rateCmp, 1)}</small></span>
+      </button>`).join('')}
+    </div>
+    <p class="legend-line"><span class="lg-bar"></span>${p.label} <span class="lg-cmp"></span>${p.cmpLabel} <span class="lg-fleet"></span>fleet average ${fmt(fleetRate, 1)}</p>
+    <div class="check" id="where-check">
+      <b>Reconciliation</b><br/>
+      Planes add up to <b>${CA.toLocaleString()}</b> close approaches and <b>${EL}</b> elevated-risk ones, on <b>${N}</b> satellites.
+      <span id="where-db">Checking against the database…</span><br/>
+      Fleet rate = ${EL} ÷ ${N} = <b>${fmt(fleetRate, 2)}</b> per satellite, recomputed from the totals (never by averaging plane rates).
+    </div>
+    <p class="note">Small numbers: each plane has 13–14 satellites and about ${Math.round(EL / 6)} elevated events a month, so a gap of ±10 between planes can be normal month-to-month variation. Compare with ${p.cmpLabel} before acting.</p>
+    <details class="table-alt"><summary>Show data table</summary><table><thead><tr><th>Plane</th><th class="n">Satellites</th><th class="n">Close approaches</th><th class="n">Per sat (30 d)</th><th class="n">Elevated</th><th class="n">High</th><th class="n">Elevated / sat</th><th class="n">Was</th><th class="n">Share of elevated</th><th class="n">Share of sats</th><th class="n">Exp. collisions</th></tr></thead>
+      <tbody>${rows.map((r) => `<tr><td>${r.pl}</td><td class="n">${r.n}</td><td class="n">${r.ca}</td><td class="n">${fmt(r.ca / r.n, 2)}</td><td class="n">${r.el}</td><td class="n">${r.hi}</td><td class="n">${fmt(r.rate, 2)}</td><td class="n">${fmt(r.rateCmp, 2)}</td><td class="n">${Math.round((100 * r.el) / EL)}%</td><td class="n">${Math.round((100 * r.n) / N)}%</td><td class="n">${fmt(r.pc, 4)}</td></tr>`).join('')}
+      <tr class="tot"><td>Fleet</td><td class="n">${N}</td><td class="n">${CA}</td><td class="n">${fmt(CA / N, 2)}</td><td class="n">${EL}</td><td class="n">${rows.reduce((a, r) => a + r.hi, 0)}</td><td class="n">${fmt(fleetRate, 2)}</td><td class="n">${fmt(ELC / N, 2)}</td><td class="n">100%</td><td class="n">100%</td><td class="n">${fmt(rows.reduce((a, r) => a + r.pc, 0), 4)}</td></tr></tbody></table></details>
+    <section class="card sats-card" id="sats-card"></section>`;
+  el.querySelectorAll('.plane-row').forEach((b) => b.addEventListener('click', () => {
+    state.focusPlane = state.focusPlane === +b.dataset.pl ? null : +b.dataset.pl;
+    renderWhere(); updateOrbits(); updatePositions();
+    const t = document.querySelector(`.plane-row[data-pl="${b.dataset.pl}"]`); if (t) t.focus({ preventScroll: true });
+  }));
+  renderPlaneSats();
+  try {
+    const k = await kpi(p.start, p.end, null);
+    const db = document.getElementById('where-db');
+    if (db) db.innerHTML = Number(k.conjunctions) === CA ? `The overview's <code>kpi_summary()</code> returns <b>${Number(k.conjunctions).toLocaleString()}</b> ✓ match.` : `<b>Mismatch:</b> kpi_summary() returns ${k.conjunctions}.`;
+  } catch (e) { const db = document.getElementById('where-db'); if (db) db.textContent = `Database check unavailable (${e.message}).`; }
+}
+
+function renderPlaneSats() {
+  const box = document.getElementById('sats-card');
+  if (!box) return;
+  const pl = state.focusPlane;
+  if (!pl) { box.innerHTML = '<p class="hint">Select a plane above to rank its satellites. You can then open a satellite\'s riskiest close approach (record detail).</p>'; return; }
+  const p = PERIODS[state.period];
+  const list = DATA.sats.filter((s) => s.plane === pl).map((s) => {
+    const ev = DATA.conj.filter((c) => c.satellite_id === s.satellite_id && objOk(c) && inWin(c, p.start, p.end));
+    const els = ev.filter(isEl).sort((a, b) => b.pc - a.pc);
+    return { s, ca: ev.length, el: els.length, hi: els.filter((c) => c.risk_tier === 'High').length, pc: ev.reduce((a, c) => a + c.pc, 0), worst: els[0] };
+  }).sort((a, b) => b.pc - a.pc);
+  const tot = list.reduce((a, x) => a + x.el, 0);
+  box.innerHTML = `<h2>Plane ${pl}: satellites ranked by expected collisions</h2>
+    <p class="hint">${list.length} satellites · ${tot} elevated-risk close approaches · ${p.label}. Satellites with none are listed as 0, not hidden. Click a row to open its riskiest close approach.</p>
+    <div class="toplist">${list.map((x, i) => `<button class="row sat-row ${state.selSat === x.s.satellite_id ? 'sel' : ''}" data-sat="${x.s.satellite_id}" data-c="${x.worst ? x.worst.conjunction_id : ''}">
+      <span class="rank">${i + 1}</span>
+      <span class="main">${x.s.name}<small>${x.s.role} · ${x.ca} close approaches · ${x.el} elevated (${x.hi} high)</small></span>
+      <span class="pc">${fmt(x.pc, 4)}<small>${x.worst ? oneIn(x.worst.pc) + ' worst' : 'none elevated'}</small></span></button>`).join('')}</div>`;
+  box.querySelectorAll('.sat-row').forEach((b) => b.addEventListener('click', () => select({ sat: +b.dataset.sat, conj: b.dataset.c || null })));
+}
+
+function renderWhy() {
+  const el = document.getElementById('view-why');
+  const W = [
+    { k: 'prev', label: 'Previous 30 days', a: '2026-09-11', b: '2026-10-10' },
+    { k: 'last', label: 'Last 30 days', a: '2026-10-11', b: '2026-11-09' },
+    { k: 'next', label: 'Next 30 days (forecast)', a: '2026-11-10', b: '2026-12-09' },
+  ];
+  const scopeOk = (c) => objOk(c) && (!state.plane || c.plane === state.plane);
+  W.forEach((w) => {
+    const ev = DATA.conj.filter((c) => scopeOk(c) && inWin(c, w.a, w.b));
+    w.ca = ev.length; w.el = ev.filter(isEl).length; w.per100 = w.ca ? (100 * w.el) / w.ca : 0;
+    w.close = w.ca ? (100 * ev.filter((c) => c.miss_distance_m < 500).length) / w.ca : 0;
+    w.src = new Map();
+    ev.forEach((c) => { const s = w.src.get(c.source_group) || { ca: 0, el: 0 }; s.ca++; if (isEl(c)) s.el++; w.src.set(c.source_group, s); });
+  });
+  const [pv, ls, nx] = W;
+  const scope = [state.plane ? `plane ${state.plane}` : 'whole fleet', state.objType ? `${OBJ_LABEL[state.objType]} only` : 'all objects'].join(', ');
+  if (!W.some((w) => w.el)) {
+    el.innerHTML = `<h2 class="view-title">${VIEWS.why}</h2><div class="empty-state"><b>Nothing to explain: no elevated-risk close approaches match these filters.</b><br/>${scope}: ${W.map((w) => `${w.label.toLowerCase()} ${w.ca}`).join(', ')} close approaches, none high or medium risk. <button class="link" data-reset>Reset filters</button> or choose <b>Other object: All</b>.</div>`;
+    el.querySelector('[data-reset]').onclick = () => document.getElementById('reset').click();
+    return;
+  }
+  const sources = [...new Set(W.flatMap((w) => [...w.src.keys()]))].sort((a, b) => (nx.src.get(b)?.el || 0) - (nx.src.get(a)?.el || 0));
+  const per = (w, s) => { const x = w.src.get(s); return x && x.ca ? (100 * x.el) / x.ca : 0; };
+  const max = Math.max(...sources.flatMap((s) => W.map((w) => per(w, s))), 1);
+  const delta = sources.map((s) => ({ s, d: (nx.src.get(s)?.el || 0) - (ls.src.get(s)?.el || 0) })).sort((a, b) => b.d - a.d);
+  const rising = sources.filter((s) => (ls.src.get(s)?.ca || 0) >= 20 && per(nx, s) > per(ls, s)).length;
+  const big = sources.filter((s) => (ls.src.get(s)?.ca || 0) >= 20).length;
+  const sel = state.whySource;
+  el.innerHTML = `
+    <h2 class="view-title">${VIEWS.why}</h2>
+    <p class="hint">Three back-to-back 30-day windows (fixed in this view; the period toggle does not apply). Plane and Other object filters apply: ${scope}.</p>
+    <div class="win-grid">
+      <div></div>${W.map((w) => `<div class="win-h">${w.label}<small>${dd(w.a)}–${dd(w.b)}</small></div>`).join('')}
+      <div class="win-l">Close approaches</div>${W.map((w) => `<div class="win-v">${w.ca.toLocaleString()}</div>`).join('')}
+      <div class="win-l">Elevated-risk</div>${W.map((w) => `<div class="win-v"><b>${w.el}</b></div>`).join('')}
+      <div class="win-l">Elevated per 100</div>${W.map((w) => `<div class="win-v">${fmt(w.per100, 1)}</div>`).join('')}
+      <div class="win-l">Closer than 500 m</div>${W.map((w) => `<div class="win-v">${fmt(w.close, 1)}%</div>`).join('')}
+    </div>
+    <section class="card">
+      <h2>Elevated-risk close approaches per 100, by source of the other object</h2>
+      <p class="hint">Per 100 close approaches with that source, so big and small sources compare fairly. Click a source to see its riskiest events.</p>
+      <div class="src-rows">${sources.map((s) => `<button class="src-row ${sel === s ? 'sel' : ''}" data-s="${s}" aria-pressed="${sel === s}">
+        <span class="pl-name">${srcLabel(s)}<small>${nx.src.get(s)?.ca || 0} close approaches next 30 d</small></span>
+        <span class="trio">${W.map((w) => `<span class="trio-row"><span class="track">${bar(per(w, s), max, w.k)}</span><span class="tv">${fmt(per(w, s), 1)} <small>(${w.src.get(s)?.el || 0}/${w.src.get(s)?.ca || 0})</small></span></span>`).join('')}</span>
+      </button>`).join('')}</div>
+      <p class="legend-line"><span class="lg-bar prev"></span>Previous 30 d <span class="lg-bar last"></span>Last 30 d <span class="lg-bar next"></span>Next 30 d (forecast)</p>
+      <details class="table-alt"><summary>Show data table</summary><table><thead><tr><th>Source</th>${W.map((w) => `<th class="n">${w.label}: elevated / all</th>`).join('')}</tr></thead><tbody>
+        ${sources.map((s) => `<tr><td>${srcLabel(s)}</td>${W.map((w) => `<td class="n">${w.src.get(s)?.el || 0} / ${w.src.get(s)?.ca || 0} (${fmt(per(w, s), 1)})</td>`).join('')}</tr>`).join('')}</tbody></table></details>
+      <div id="src-events"></div>
+    </section>
+    <section class="annot" aria-label="Analysis note">
+      <p><span class="tag obs">Observed</span>Elevated-risk close approaches go ${ls.el} → ${nx.el} (${pct(nx.el, ls.el)}) while all close approaches go ${ls.ca.toLocaleString()} → ${nx.ca.toLocaleString()} (${pct(nx.ca, ls.ca)}).</p>
+      <p><span class="tag hyp">Possible explanation</span>The rise comes from <b>closer</b> approaches, not <b>more</b> of them: the share under 500 m moves ${fmt(ls.close, 1)}% → ${fmt(nx.close, 1)}%. ${delta[0] && delta[0].d > 0 ? `${srcLabel(delta[0].s)} adds the most (+${delta[0].d}).` : ''}</p>
+      <p><span class="tag ag">Evidence against</span>The previous window already had ${pv.el} (${fmt(pv.per100, 1)} per 100), so against that the rise is only ${pct(nx.el, pv.el)}: the last 30 days may just have been quiet. The rate rose for ${rising} of ${big} large sources, so it is not specific to one debris cloud.</p>
+      <p><span class="tag nxt">Limitation · next evidence</span>Three windows are too few to call a trend, and close approaches here are synthetic random draws. Forecast Pc also changes as new tracking shrinks the uncertainty. Next: re-run with fresh tracking and 6+ months of history. This is an association, not a cause.</p>
+    </section>`;
+  el.querySelectorAll('.src-row').forEach((b) => b.addEventListener('click', () => {
+    state.whySource = state.whySource === b.dataset.s ? null : b.dataset.s; renderWhy();
+    const t = document.querySelector(`.src-row[data-s="${CSS.escape(b.dataset.s)}"]`); if (t) t.focus({ preventScroll: true });
+  }));
+  if (sel) {
+    const p = PERIODS.next30;
+    const evs = DATA.conj.filter((c) => c.source_group === sel && scopeOk(c) && inWin(c, p.start, p.end) && isEl(c)).sort((a, b) => b.pc - a.pc).slice(0, 5);
+    const box = document.getElementById('src-events');
+    box.innerHTML = `<h3 class="sub-h">${srcLabel(sel)}: riskiest close approaches, next 30 days</h3>` + (evs.length ? `<div class="toplist">${evs.map((c, i) => `<button class="row" data-c="${c.conjunction_id}"><span class="rank">${i + 1}</span><span class="main">${DATA.satById.get(c.satellite_id).name} × ${c.object_name}<small>${c.tca_utc.slice(5, 16).replace('T', ' ')} UTC · ${fmt(c.miss_distance_m, 0)} m · plane ${c.plane}</small></span><span class="pc"><span class="tier"><i style="background:${TIER[c.risk_tier].color}"></i>${c.risk_tier}</span><small>${oneIn(c.pc)}</small></span></button>`).join('')}</div>` : '<p class="empty">No elevated-risk events from this source in scope.</p>');
+    box.querySelectorAll('.row').forEach((b) => b.addEventListener('click', () => { const c = DATA.conj.find((x) => x.conjunction_id === b.dataset.c); select({ sat: c.satellite_id, conj: c.conjunction_id }); }));
+  }
+}

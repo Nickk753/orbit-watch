@@ -1,0 +1,58 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>
+body { margin: 0; background: #f6f6f3; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #1d1d1b; padding: 28px; width: 1500px; }
+h1 { font-size: 22px; margin: 0 0 4px; } .sub { color: #555; font-size: 14px; margin: 0 0 18px; }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; }
+.opt h2 { font-size: 17px; margin: 0 0 4px; }
+.q { font-size: 13.5px; color: #2a5ea8; margin: 0 0 8px; font-weight: 600; }
+.frame { border: 2px solid #333; border-radius: 8px; background: #fff; padding: 10px; display: grid; gap: 8px; height: 470px; grid-template-rows: auto auto 1fr auto auto; }
+.box { border: 1.5px dashed #888; border-radius: 6px; padding: 6px 8px; font-size: 12px; color: #444; background: #fafafa; position: relative; }
+.box b { color: #111; font-size: 12.5px; display: block; }
+.bars div { display: grid; grid-template-columns: 70px 1fr 90px; gap: 8px; align-items: center; font-size: 11px; margin: 3px 0; }
+.bars i { display: block; height: 10px; background: #9fc0ea; border-radius: 2px; position: relative; }
+.bars i::after { content: ""; position: absolute; top: -3px; bottom: -3px; width: 2px; background: #222; left: var(--c); }
+.trio div { display: grid; grid-template-columns: 90px 1fr; gap: 8px; font-size: 11px; margin: 4px 0; align-items: center; }
+.trio span { display: grid; gap: 2px; } .trio i { display: block; height: 6px; border-radius: 2px; }
+.notes { font-size: 13px; line-height: 1.5; margin: 10px 0 0; padding-left: 18px; }
+table { border-collapse: collapse; width: 100%; font-size: 12.5px; margin-top: 22px; background: #fff; }
+th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; vertical-align: top; line-height: 1.4; }
+th { background: #efefea; }
+td:first-child { font-weight: 600; white-space: nowrap; }
+.red { border-color: #c33 !important; }
+</style></head><body>
+<h1>Orbit Watch · Level 2 diagnostic views (Block 03, Ex1)</h1>
+<p class="sub">Overview finding: elevated-risk close approaches rise 133 → 168 next 30 days while all close approaches stay flat (1,258 → 1,245). The overview cannot say <b>where</b> that rise sits or <b>why</b>.</p>
+<div class="row">
+  <div class="opt"><h2>View A · Where is the risk concentrated?</h2><p class="q">Question: which planes and satellites carry more than their share?</p>
+    <div class="frame">
+      <div class="box"><b>Breadcrumb: Overview › Where is the risk concentrated? · ← Back</b>Global filters stay on top (period · plane · other object) with chips</div>
+      <div class="box"><b>One-line summary</b>"Plane 1: 34 elevated on 13 sats (2.6 each, fleet 2.1) = 20% of risk with 16% of sats"</div>
+      <div class="box bars"><b>Ranked bars: elevated per satellite by plane</b>
+        <div>Plane 1 · 13<i style="width:100%;--c:54%"></i>34 of 191</div>
+        <div>Plane 2 · 13<i style="width:85%;--c:46%"></i>29 of 231</div>
+        <div>Plane 4 · 14<i style="width:80%;--c:73%"></i>30 of 188</div>
+        <div>… 6 planes<i style="width:65%;--c:80%"></i>tick = last 30 d</div></div>
+      <div class="box" style="border-color:#1baf7a"><b>Reconciliation strip</b>planes sum = overview total (kpi_summary) · fleet rate = total ÷ 80, not an average of rates · small-numbers note</div>
+      <div class="box red"><b>Selected plane → satellites ranked by expected collisions</b>zeros listed, not hidden · click a row → Level 3 record (riskiest close approach)</div>
+    </div>
+  </div>
+  <div class="opt"><h2>View B · What might explain the change?</h2><p class="q">Question: more close approaches, or closer ones? Which debris source?</p>
+    <div class="frame">
+      <div class="box"><b>Breadcrumb: Overview › What might explain the change? · ← Back</b>Plane + object filters apply; 3 fixed windows (labelled)</div>
+      <div class="box"><b>Window table: previous 30 d · last 30 d · next 30 d</b>close approaches · elevated · elevated per 100 · share closer than 500 m</div>
+      <div class="box trio"><b>Grouped bars: elevated per 100 close approaches, by debris source</b>
+        <div>Fengyun-1C<span><i style="width:70%;background:#8a8f99"></i><i style="width:62%;background:#3987e5"></i><i style="width:79%;background:#86b6ef"></i></span></div>
+        <div>Cosmos 2251<span><i style="width:74%;background:#8a8f99"></i><i style="width:64%;background:#3987e5"></i><i style="width:85%;background:#86b6ef"></i></span></div>
+        <div>…<span><i style="width:40%;background:#8a8f99"></i></span></div></div>
+      <div class="box"><b>Annotation: Observed · Possible explanation · Evidence against · Limitation / next evidence</b>association wording, no causal claim</div>
+      <div class="box red"><b>Selected source → its 5 riskiest close approaches</b>click a row → Level 3 record</div>
+    </div>
+  </div>
+</div>
+<table>
+  <tr><th>View</th><th>Question</th><th>Dimensions</th><th>Metrics (same definitions as overview)</th><th>Chart</th><th>Inherited filters</th><th>Comparison</th><th>Path to detail</th></tr>
+  <tr><td>A · Where</td><td>Which planes / satellites carry the rise?</td><td>Plane → satellite</td><td>Elevated per satellite (numerator + denominator shown), close approaches per sat, share of risk vs share of sats, expected collisions</td><td>Ranked horizontal bars + comparison tick + fleet line; ranked list</td><td>Period, other object (plane preselects a row)</td><td>Same filters, previous 30 days</td><td>Satellite row → riskiest close approach</td></tr>
+  <tr><td>B · Why</td><td>Is the rise more encounters or closer ones? Which source?</td><td>Time window × debris source</td><td>Close approaches, elevated, elevated per 100, % closer than 500 m</td><td>Window table + grouped bars per source</td><td>Plane, other object (period fixed: 3 windows)</td><td>Previous vs last vs next 30 days</td><td>Source → top 5 events → record</td></tr>
+  <tr><td>Data cannot establish</td><td colspan="7">Causes. Events are synthetic random draws on real orbits; 3 windows are too few for a trend; forecast Pc changes as tracking improves. We report associations only.</td></tr>
+</table>
+</body></html>
