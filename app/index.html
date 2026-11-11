@@ -18,8 +18,9 @@
           <span><i class="dot" style="background:var(--warning)"></i>Medium</span>
           <span><i class="dot" style="background:var(--sat-low)"></i>Low / none</span>
           <span><i class="dot small" style="background:var(--debris)"></i>Tracked objects</span>
+          <span>Fleet speed ≈ 7.5 km/s (27,000 km/h)</span>
         </div>
-        <div class="clock"><span id="clock">--</span> UTC · <button id="speed" class="link">30× speed</button></div>
+        <div class="clock"><span id="clock">--</span> UTC · <button id="speed" class="link">10× speed</button></div>
       </div>
       <div id="selection" class="selection hidden" role="status"></div>
     </section>
@@ -48,8 +49,19 @@
       </div>
       <p class="period-note" id="period-note"></p>
 
+      <nav class="tabs" role="tablist" aria-label="Panel sections">
+        <button role="tab" data-t="overview" class="on" aria-selected="true">Overview</button>
+        <button role="tab" data-t="charts" aria-selected="false">Charts</button>
+        <button role="tab" data-t="top" aria-selected="false">Top risks</button>
+      </nav>
+
+      <div class="tab" data-t="overview">
       <div id="decision" class="decision"></div>
       <div id="kpis" class="kpis"></div>
+      <button class="link more" data-go="top">See the most probable close approaches →</button>
+      </div>
+
+      <div class="tab hidden" data-t="charts">
 
       <section class="card">
         <h2>Elevated-risk close approaches per week</h2>
@@ -63,11 +75,15 @@
         <div id="sources" class="chart"></div>
       </section>
 
+      </div>
+
+      <div class="tab hidden" data-t="top">
       <section class="card">
         <h2>Most probable close approaches</h2>
         <p class="hint">Top 10 by probability of collision. Click a row to fly to it.</p>
         <div id="top" class="toplist"></div>
       </section>
+      </div>
 
       <footer class="foot">
         Orbits: <a href="https://celestrak.org" target="_blank" rel="noopener">CelesTrak</a> GP data, snapshot 10 Nov 2026 (real).

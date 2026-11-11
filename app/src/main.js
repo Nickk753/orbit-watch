@@ -15,7 +15,7 @@ const TIER = { High: { color: '#d03b3b', rank: 1 }, Medium: { color: '#fab219', 
 const EARTH_R = 6371;
 const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 
-const state = { period: 'next30', plane: null, selSat: null, selConj: null, speed: 30 };
+const state = { period: 'next30', plane: null, selSat: null, selConj: null, speed: 10 };
 let DATA = null;
 
 // ---------- data ----------
@@ -61,7 +61,9 @@ function geo(rec, date) {
   const pv = sat.propagate(rec, date);
   if (!pv || !pv.position || isNaN(pv.position.x)) return null;
   const g = sat.eciToGeodetic(pv.position, sat.gstime(date));
-  return { lat: sat.degreesLat(g.latitude), lng: sat.degreesLong(g.longitude), alt: g.height / EARTH_R };
+  const v = pv.velocity;
+  return { lat: sat.degreesLat(g.latitude), lng: sat.degreesLong(g.longitude), alt: g.height / EARTH_R,
+    height: g.height, speed: Math.hypot(v.x, v.y, v.z) };
 }
 function orbitRing(rec, date) {
   // one full revolution drawn in the Earth frame of `date` (the orbit plane as seen now)
@@ -99,6 +101,7 @@ const dayNightMaterial = new THREE.ShaderMaterial({
       float b = smoothstep(-0.12, 0.18, i); gl_FragColor = vec4(mix(night, day * (0.75 + 0.25 * b), b), 1.0); }`,
 });
 
+const meshes = new Map();
 let world, simTime = Date.now(), lastTick = performance.now();
 function initGlobe() {
   const el = document.getElementById('globe');
@@ -114,9 +117,10 @@ function initGlobe() {
     .objectThreeObject((d) => {
       const m = new THREE.Mesh(new THREE.SphereGeometry(d.size, 16, 16), new THREE.MeshBasicMaterial({ color: d.color }));
       m.__sat = d.id;
+      meshes.set(d.id, m);
       return m;
     })
-    .objectLabel((d) => `<b>${d.name}</b><br/>Plane ${d.plane} · ${d.role}<br/>${d.tierLabel}`)
+    .objectLabel((d) => { const g = geo(DATA.satById.get(d.id).rec, new Date(simTime)); return `<b>${d.name}</b><br/>Plane ${d.plane} · ${d.role}<br/>Speed ${g ? g.speed.toFixed(2) : '–'} km/s · altitude ${g ? Math.round(g.height) : '–'} km<br/>${d.tierLabel}`; })
     .onObjectClick((d) => select({ sat: d.id }))
     // orbit rings
     .pathPoints((d) => d.pts).pathPointLat((p) => p[0]).pathPointLng((p) => p[1]).pathPointAlt((p) => p[2])
@@ -142,27 +146,59 @@ function satTiers() {
 }
 
 function updatePositions() {
+  // rebuild the fleet layer (on filter / selection change); motion happens in animate()
   const now = new Date(simTime);
   const worst = satTiers();
   const fleet = [];
+  meshes.clear();
   for (const s of DATA.sats) {
     if (state.plane && s.plane !== state.plane) continue;
     const g = geo(s.rec, now);
     if (!g) continue;
     const t = worst.get(s.satellite_id) || 'Low';
     const sel = state.selSat === s.satellite_id;
-    fleet.push({ id: s.satellite_id, name: s.name, plane: s.plane, role: s.role, ...g,
+    fleet.push({ id: s.satellite_id, name: s.name, plane: s.plane, role: s.role, lat: g.lat, lng: g.lng, alt: g.alt,
       color: TIER[t].color, size: sel ? 2.4 : t === 'High' ? 1.7 : 1.15,
       tierLabel: t === 'Low' ? 'No elevated risk in period' : `${t} risk close approach in period` });
   }
   world.objectsData(fleet);
-  const parts = [];
-  for (const o of DATA.objs) { const g = geo(o.rec, now); if (g) parts.push(g); }
-  world.particlesData([parts]);
+  updateSlowLayers();
+}
+
+function updateSlowLayers() {
+  const now = new Date(simTime);
+  updateParticles();
   const ss = subsolar(now);
   const c = world.getCoords(ss.lat, ss.lng, 0);
   dayNightMaterial.uniforms.sunDirection.value.set(c.x, c.y, c.z).normalize();
   document.getElementById('clock').textContent = now.toISOString().slice(0, 16).replace('T', ' ');
+  if (state.selSat) {
+    const g = geo(DATA.satById.get(state.selSat).rec, now);
+    const el = document.getElementById('live-speed');
+    if (g && el) el.textContent = `${g.speed.toFixed(2)} km/s (${Math.round(g.speed * 3600).toLocaleString('en-US')} km/h) · altitude ${Math.round(g.height)} km`;
+  }
+}
+
+function updateParticles() {
+  const now = new Date(simTime);
+  const parts = [];
+  for (const o of DATA.objs) { const g = geo(o.rec, now); if (g) parts.push(g); }
+  world.particlesData([parts]);
+}
+
+function animate() {
+  // every frame: advance simulated time and move each satellite smoothly
+  const t = performance.now();
+  simTime += (t - lastTick) * state.speed;
+  lastTick = t;
+  const now = new Date(simTime);
+  for (const [id, m] of meshes) {
+    const g = geo(DATA.satById.get(id).rec, now);
+    if (!g) continue;
+    const c = world.getCoords(g.lat, g.lng, g.alt);
+    (m.parent || m).position.set(c.x, c.y, c.z); // the globe wraps each mesh in a positioned group
+  }
+  requestAnimationFrame(animate);
 }
 
 function updateOrbits() {
@@ -184,12 +220,6 @@ function updateOrbits() {
   world.pathsData(paths);
 }
 
-function tick() {
-  const t = performance.now();
-  simTime += (t - lastTick) * state.speed;
-  lastTick = t;
-  updatePositions();
-}
 
 // ---------- panel ----------
 const fmt = (n, d = 2) => (n == null ? '–' : Number(n).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }));
@@ -329,14 +359,21 @@ function renderSelection() {
   const c = state.selConj && DATA.conj.find((x) => x.conjunction_id === state.selConj);
   el.innerHTML = `<div class="crumbs">Fleet › Plane ${s.plane} › ${s.name}${c ? ` › ${c.conjunction_id}` : ''}</div>
     <h3>${c ? `${s.name} × ${c.object_name}` : s.name}</h3>
-    ${c ? `<dl><dt>Closest approach</dt><dd>${c.tca_utc.replace('T', ' ').slice(0, 16)} UTC</dd>
+    ${c ? `<dl><dt>Speed now</dt><dd id="live-speed">–</dd><dt>Closest approach</dt><dd>${c.tca_utc.replace('T', ' ').slice(0, 16)} UTC</dd>
       <dt>Miss distance</dt><dd>${fmt(c.miss_distance_m, 0)} m</dd><dt>Closing speed</dt><dd>${fmt(c.relative_velocity_kms, 1)} km/s</dd>
       <dt>Probability</dt><dd>${oneIn(c.pc)} (${c.risk_tier})</dd><dt>Other object</dt><dd>${c.object_type}, ${c.source_group}</dd>
       <dt>Status</dt><dd>${c.status}</dd></dl>`
-      : `<dl><dt>Role</dt><dd>${s.role}, ${fmt(s.mean_altitude_km, 0)} km</dd><dt>${p.label}</dt><dd>${evs.length} close approaches: ${hi} high, ${med} medium</dd></dl>`}
+      : `<dl><dt>Speed now</dt><dd id="live-speed">–</dd><dt>Role</dt><dd>${s.role}, ${fmt(s.mean_altitude_km, 0)} km</dd><dt>${p.label}</dt><dd>${evs.length} close approaches: ${hi} high, ${med} medium</dd></dl>`}
     <button class="link" id="sel-clear">Back to fleet</button>`;
   el.classList.remove('hidden');
+  updateSlowLayers();
   document.getElementById('sel-clear').onclick = () => select({});
+}
+
+function showTab(t) {
+  document.querySelectorAll('.tabs button').forEach((b) => { const on = b.dataset.t === t; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); });
+  document.querySelectorAll('.tab').forEach((d) => d.classList.toggle('hidden', d.dataset.t !== t));
+  if (t === 'charts') { renderWeekly(); renderSources(); }
 }
 
 function select({ sat: id = null, conj = null }) {
@@ -370,10 +407,12 @@ function bindUi() {
     renderAll();
   });
   document.getElementById('speed').addEventListener('click', (e) => {
-    state.speed = state.speed === 1 ? 30 : state.speed === 30 ? 120 : 1;
+    state.speed = state.speed === 1 ? 10 : state.speed === 10 ? 60 : 1;
     e.target.textContent = state.speed === 1 ? 'real time' : `${state.speed}× speed`;
   });
   document.getElementById('retry').addEventListener('click', start);
+  document.querySelectorAll('.tabs button').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.t)));
+  document.querySelector('.more').addEventListener('click', () => showTab('top'));
 }
 
 async function start() {
@@ -381,7 +420,7 @@ async function start() {
   document.getElementById('loading').classList.remove('hidden');
   try {
     DATA = await load();
-    if (!world) { initGlobe(); bindUi(); setInterval(tick, 1000); setInterval(updateOrbits, 30000); }
+    if (!world) { initGlobe(); bindUi(); requestAnimationFrame(animate); setInterval(updateSlowLayers, 1000); setInterval(updateParticles, 200); setInterval(updateOrbits, 30000); }
     await renderAll();
     document.getElementById('loading').classList.add('hidden');
   } catch (e) {
