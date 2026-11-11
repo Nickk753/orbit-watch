@@ -1,0 +1,17 @@
+flowchart LR
+    L1["<b>Level 1 · Overview</b><br/>globe + decision line + 4 KPIs<br/>filters: period · plane · other object"]
+    D1["<b>Level 2 · Diagnostic A</b><br/>Risk by plane and satellite<br/>which satellites carry the risk?"]
+    D2["<b>Level 2 · Diagnostic B</b><br/>Risk by source and time<br/>which debris clouds, which weeks?"]
+    R["<b>Level 3 · Record detail</b><br/>one close approach<br/>miss distance · Pc · status · both orbits"]
+    L1 -- "click a plane / KPI" --> D1
+    L1 -- "Charts tab: click a source bar or week" --> D2
+    D1 -- "click a satellite row" --> R
+    D2 -- "click an event" --> R
+    L1 -- "Top risks row or globe click (shortcut)" --> R
+    R -- "Back to fleet (filters kept)" --> L1
+    classDef l1 fill:#e6f0fb,stroke:#2a78d6,color:#123;
+    classDef l2 fill:#fff3e0,stroke:#e0a040,color:#321;
+    classDef l3 fill:#fbe4e4,stroke:#c33,color:#311;
+    class L1 l1
+    class D1,D2 l2
+    class R l3

@@ -15,7 +15,7 @@ const TIER = { High: { color: '#d03b3b', rank: 1 }, Medium: { color: '#fab219', 
 const EARTH_R = 6371;
 const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 
-const state = { period: 'next30', plane: null, selSat: null, selConj: null, speed: 10 };
+const state = { period: 'next30', plane: null, objType: null, selSat: null, selConj: null, speed: 10 };
 let DATA = null;
 
 // ---------- data ----------
@@ -33,7 +33,7 @@ async function getAll(path) {
 async function kpi(start, end, plane) {
   const r = await fetch(`${SB_URL}/rest/v1/rpc/kpi_summary`, {
     method: 'POST', headers: { ...H, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ p_start: start, p_end: end, p_plane: plane, p_object_type: null }),
+    body: JSON.stringify({ p_start: start, p_end: end, p_plane: plane, p_object_type: state.objType }),
   });
   if (!r.ok) throw new Error(`kpi_summary: HTTP ${r.status}`);
   return (await r.json())[0];
@@ -138,7 +138,7 @@ function satTiers() {
   const p = PERIODS[state.period];
   const worst = new Map();
   for (const c of DATA.conj) {
-    if (c.tca_date < p.start || c.tca_date > p.end) continue;
+    if (c.tca_date < p.start || c.tca_date > p.end || (state.objType && c.object_type !== state.objType)) continue;
     const cur = worst.get(c.satellite_id);
     if (!cur || TIER[c.risk_tier].rank < TIER[cur].rank) worst.set(c.satellite_id, c.risk_tier);
   }
@@ -224,13 +224,23 @@ function updateOrbits() {
 // ---------- panel ----------
 const fmt = (n, d = 2) => (n == null ? '–' : Number(n).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }));
 const oneIn = (pc) => (pc > 0 ? `1 in ${Math.round(1 / pc).toLocaleString('en-US')}` : '–');
-const inPeriod = (c, p) => c.tca_date >= p.start && c.tca_date <= p.end && (!state.plane || c.plane === state.plane);
+const inScope = (c) => (!state.plane || c.plane === state.plane) && (!state.objType || c.object_type === state.objType);
+const inPeriod = (c, p) => c.tca_date >= p.start && c.tca_date <= p.end && inScope(c);
+const OBJ_LABEL = { Debris: 'debris', Payload: 'payloads', 'Rocket body': 'rocket bodies' };
+const scopeText = () => [state.plane ? `plane ${state.plane}` : null, state.objType ? `${OBJ_LABEL[state.objType]} only` : null].filter(Boolean).join(', ') || 'whole fleet, all objects';
 
+let kpiTicket = 0;
 async function renderKpis() {
   const p = PERIODS[state.period];
   const box = document.getElementById('kpis');
+  const ticket = ++kpiTicket;
   box.innerHTML = '<p class="hint">Loading KPIs…</p>';
   const [cur, cmp] = await Promise.all([kpi(p.start, p.end, state.plane), kpi(p.cmpStart, p.cmpEnd, state.plane)]);
+  if (ticket !== kpiTicket) return; // a newer filter change is already loading; drop this stale answer
+  if (!cur.conjunctions) {
+    box.innerHTML = `<div class="empty-state"><b>No close approaches match these filters.</b><br/>${p.label}, ${scopeText()}: 0 events, so rates and shares are not shown (they would be misleading zeros). Try <b>Other object: All</b> or reset the filters.</div>`;
+    return;
+  }
   const tiles = [
     ['Close approaches per satellite', cur.conjunctions_per_sat_30d, cmp.conjunctions_per_sat_30d, 2, 'per 30 days', `${cur.conjunctions.toLocaleString()} close approaches, ${cur.satellites_in_scope} satellites`],
     ['High-risk share', cur.high_risk_share_pct, cmp.high_risk_share_pct, 2, '%', `${cur.high_risk} high-risk events (Pc ≥ 1 in 10,000)`],
@@ -257,7 +267,7 @@ function renderDecision() {
     el.className = open.length ? 'decision' : 'decision calm';
     el.innerHTML = open.length
       ? `<b class="big">${open.length}</b> high-risk close approaches on <b>${sats}</b> satellites await a maneuver decision in the next 30 days. ${planned.length} already have a planned burn.`
-      : `No high-risk close approaches await a decision${state.plane ? ` in plane ${state.plane}` : ''}. ${planned.length} have a planned burn.`;
+      : `No high-risk close approaches await a decision (${scopeText()}). ${planned.length} have a planned burn.`;
   } else {
     const mit = rows.filter((c) => c.status === 'Mitigated').length;
     el.className = 'decision calm';
@@ -273,7 +283,7 @@ function isoWeekStart(d) { const x = new Date(`${d}T00:00:00Z`); const day = (x.
 function renderWeekly() {
   const weeks = new Map();
   for (const c of DATA.conj) {
-    if (state.plane && c.plane !== state.plane) continue;
+    if (!inScope(c)) continue;
     const w = isoWeekStart(c.tca_date);
     if (!weeks.has(w)) weeks.set(w, { w, high: 0, med: 0 });
     if (c.risk_tier === 'High') weeks.get(w).high++;
@@ -281,6 +291,21 @@ function renderWeekly() {
   }
   // drop partial first/last weeks (data starts 12 Aug, ends 9 Dec)
   const list = [...weeks.values()].sort((a, b) => a.w.localeCompare(b.w)).filter((x) => x.w >= '2026-08-17' && x.w <= '2026-11-30');
+  const el0 = document.getElementById('weekly');
+  const total = list.reduce((a, x) => a + x.high + x.med, 0);
+  if (!total) {
+    el0.innerHTML = '<p class="empty">No elevated-risk close approaches for this selection, so there is nothing to chart.</p>';
+    document.getElementById('weekly-summary').textContent = '';
+    document.getElementById('weekly-table').innerHTML = '';
+    return;
+  }
+  const fcWeek = isoWeekStart(AS_OF);
+  const past = list.filter((x) => x.w < fcWeek), fut = list.filter((x) => x.w >= fcWeek);
+  const avg = (a) => (a.length ? a.reduce((t, x) => t + x.high + x.med, 0) / a.length : 0);
+  const peak = list.reduce((m, x) => (x.high + x.med > m.high + m.med ? x : m), list[0]);
+  const wk = (w) => new Date(`${w}T00:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  document.getElementById('weekly-summary').textContent = `Summary (${scopeText()}): about ${avg(past).toFixed(0)} elevated-risk close approaches per week so far; the forecast weeks average ${avg(fut).toFixed(0)}. Busiest week: ${wk(peak.w)} with ${peak.high + peak.med} (${peak.high} high).`;
+  document.getElementById('weekly-table').innerHTML = `<table><thead><tr><th>Week of</th><th class="n">High</th><th class="n">Medium</th><th class="n">Total</th><th>Type</th></tr></thead><tbody>${list.map((x) => `<tr><td>${wk(x.w)}</td><td class="n">${x.high}</td><td class="n">${x.med}</td><td class="n">${x.high + x.med}</td><td>${x.w >= fcWeek ? 'Forecast' : 'Actual'}</td></tr>`).join('')}</tbody></table>`;
   const W = 400, Hh = 150, L = 28, B = 22, T = 8, max = Math.max(...list.map((x) => x.high + x.med), 1);
   const bw = (W - L) / list.length;
   const y = (v) => T + (Hh - T - B) * (1 - v / max);
@@ -317,13 +342,20 @@ function renderSources() {
   const total = [...by.values()].reduce((a, b) => a + b, 0);
   const rows = [...by.entries()].sort((a, b) => b[1] - a[1]);
   const el = document.getElementById('sources');
-  if (!rows.length) { el.innerHTML = '<p class="empty">No elevated-risk close approaches in this selection.</p>'; return; }
+  const label = (k) => k.replace('FENGYUN 1C', 'Fengyun-1C').replace('COSMOS 2251', 'Cosmos 2251').replace('IRIDIUM 33', 'Iridium 33');
+  if (!rows.length) {
+    el.innerHTML = '<p class="empty">No elevated-risk close approaches in this selection.</p>';
+    document.getElementById('sources-summary').textContent = '';
+    document.getElementById('sources-table').innerHTML = '';
+    return;
+  }
+  document.getElementById('sources-summary').textContent = `Summary (${p.label.toLowerCase()}, ${scopeText()}): ${label(rows[0][0])} causes ${Math.round((100 * rows[0][1]) / total)}% of the ${total} elevated-risk close approaches.`;
+  document.getElementById('sources-table').innerHTML = `<table><thead><tr><th>Source</th><th class="n">Close approaches</th><th class="n">Share</th></tr></thead><tbody>${rows.map(([k, v]) => `<tr><td>${label(k)}</td><td class="n">${v}</td><td class="n">${Math.round((100 * v) / total)}%</td></tr>`).join('')}</tbody></table>`;
   const W = 400, rh = 26, L = 150, max = rows[0][1];
   let s = `<svg viewBox="0 0 ${W} ${rows.length * rh + 4}" role="img" aria-label="Elevated-risk close approaches by source">`;
   rows.forEach(([k, v], i) => {
     const w = ((W - L - 70) * v) / max, yy = i * rh + 4;
-    const label = k.replace(' debris', ' debris').replace('FENGYUN 1C', 'Fengyun-1C').replace('COSMOS 2251', 'Cosmos 2251').replace('IRIDIUM 33', 'Iridium 33');
-    s += `<text x="0" y="${yy + 15}" class="val">${label}</text><rect x="${L}" y="${yy + 4}" width="${Math.max(w, 2)}" height="14" rx="2" fill="${css('--accent')}"/>`;
+    s += `<text x="0" y="${yy + 15}" class="val">${label(k)}</text><rect x="${L}" y="${yy + 4}" width="${Math.max(w, 2)}" height="14" rx="2" fill="${css('--accent')}"/>`;
     s += `<text x="${L + w + 6}" y="${yy + 15}" class="val">${v} · ${Math.round((100 * v) / total)}%</text>`;
   });
   el.innerHTML = s + '</svg>';
@@ -333,7 +365,7 @@ function renderTop() {
   const p = PERIODS[state.period];
   const rows = DATA.conj.filter((c) => inPeriod(c, p)).sort((a, b) => b.pc - a.pc).slice(0, 10);
   const el = document.getElementById('top');
-  if (!rows.length) { el.innerHTML = '<p class="empty">No close approaches match these filters.</p>'; return; }
+  if (!rows.length) { el.innerHTML = `<div class="empty-state"><b>No close approaches match these filters.</b><br/>${p.label}, ${scopeText()}. Try <b>Other object: All</b> or reset the filters.</div>`; return; }
   el.innerHTML = rows.map((c, i) => {
     const s = DATA.satById.get(c.satellite_id);
     const when = new Date(c.tca_utc).toISOString().slice(5, 16).replace('T', ' ');
@@ -354,7 +386,7 @@ function renderSelection() {
   if (!state.selSat) { el.classList.add('hidden'); return; }
   const s = DATA.satById.get(state.selSat);
   const p = PERIODS[state.period];
-  const evs = DATA.conj.filter((c) => c.satellite_id === s.satellite_id && c.tca_date >= p.start && c.tca_date <= p.end);
+  const evs = DATA.conj.filter((c) => c.satellite_id === s.satellite_id && inPeriod(c, p));
   const hi = evs.filter((c) => c.risk_tier === 'High').length, med = evs.filter((c) => c.risk_tier === 'Medium').length;
   const c = state.selConj && DATA.conj.find((x) => x.conjunction_id === state.selConj);
   el.innerHTML = `<div class="crumbs">Fleet › Plane ${s.plane} › ${s.name}${c ? ` › ${c.conjunction_id}` : ''}</div>
@@ -388,7 +420,11 @@ function select({ sat: id = null, conj = null }) {
 
 async function renderAll() {
   const p = PERIODS[state.period];
-  document.getElementById('period-note').textContent = `${p.label}: ${p.start} to ${p.end} · compared with ${p.cmpLabel} · as of ${AS_OF}${state.plane ? ` · plane ${state.plane}` : ''}`;
+  const d = (x) => new Date(`${x}T00:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  const chips = [[`${p.label} (${d(p.start)}–${d(p.end)})`, state.period === 'next30'], [state.plane ? `Plane ${state.plane}` : 'All planes', !state.plane], [state.objType ? `Other object: ${state.objType}` : 'All objects', !state.objType]];
+  document.getElementById('active-chips').innerHTML = chips.map(([t, def]) => `<span class="chip ${def ? 'default' : ''}">${t}</span>`).join(' ');
+  document.getElementById('reset').classList.toggle('hidden', state.period === 'next30' && !state.plane && !state.objType);
+  document.getElementById('period-note').textContent = `Compared with ${p.cmpLabel} (${d(p.cmpStart)}–${d(p.cmpEnd)}), same filters. Data as of ${d(AS_OF)} 2026: real orbits (CelesTrak), synthetic close approaches.`;
   renderDecision(); renderWeekly(); renderSources(); renderTop(); renderSelection(); updateOrbits(); updatePositions();
   try { await renderKpis(); } catch (e) { document.getElementById('kpis').innerHTML = `<p class="empty">KPIs could not load (${e.message}).</p>`; }
 }
@@ -398,10 +434,11 @@ function bindUi() {
     document.querySelectorAll('#period button').forEach((x) => x.classList.toggle('on', x === b));
     state.period = b.dataset.p; renderAll();
   }));
+  document.getElementById('objtype').addEventListener('change', (e) => { state.objType = e.target.value || null; state.selSat = null; state.selConj = null; renderAll(); });
   document.getElementById('plane').addEventListener('change', (e) => { state.plane = e.target.value ? +e.target.value : null; state.selSat = null; state.selConj = null; renderAll(); });
   document.getElementById('reset').addEventListener('click', () => {
-    state.period = 'next30'; state.plane = null; state.selSat = null; state.selConj = null;
-    document.getElementById('plane').value = '';
+    state.period = 'next30'; state.plane = null; state.objType = null; state.selSat = null; state.selConj = null;
+    document.getElementById('plane').value = ''; document.getElementById('objtype').value = '';
     document.querySelectorAll('#period button').forEach((x) => x.classList.toggle('on', x.dataset.p === 'next30'));
     world.pointOfView({ lat: 25, lng: -40, altitude: 2.6 }, 1000);
     renderAll();
@@ -410,7 +447,6 @@ function bindUi() {
     state.speed = state.speed === 1 ? 10 : state.speed === 10 ? 60 : 1;
     e.target.textContent = state.speed === 1 ? 'real time' : `${state.speed}× speed`;
   });
-  document.getElementById('retry').addEventListener('click', start);
   document.querySelectorAll('.tabs button').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.t)));
   document.querySelector('.more').addEventListener('click', () => showTab('top'));
 }
@@ -430,4 +466,6 @@ async function start() {
     document.getElementById('error').classList.remove('hidden');
   }
 }
+// bound here, not in bindUi(): bindUi only runs after a first successful load, so a first-load failure left Retry dead
+document.getElementById('retry').addEventListener('click', start);
 start();

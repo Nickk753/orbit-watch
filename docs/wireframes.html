@@ -1,0 +1,65 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>
+body { margin: 0; background: #f6f6f3; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #1d1d1b; padding: 28px; width: 1500px; }
+h1 { font-size: 22px; margin: 0 0 4px; } .sub { color: #666; font-size: 14px; margin: 0 0 18px; }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; }
+.opt h2 { font-size: 17px; margin: 0 0 6px; display: flex; gap: 10px; align-items: center; }
+.tag { font-size: 12px; padding: 2px 9px; border-radius: 999px; font-weight: 600; }
+.chosen .tag { background: #dff3e6; color: #11663a; border: 1px solid #8bcca3; }
+.rej .tag { background: #fbe4e4; color: #8a2020; border: 1px solid #e3a0a0; }
+.frame { border: 2px solid #333; border-radius: 8px; background: #fff; height: 430px; position: relative; padding: 10px; display: grid; gap: 8px; }
+.box { border: 1.5px dashed #888; border-radius: 6px; padding: 6px 8px; font-size: 12px; color: #444; background: #fafafa; position: relative; }
+.box b { color: #111; font-size: 12.5px; display: block; }
+.n { position: absolute; top: -9px; left: -9px; width: 20px; height: 20px; border-radius: 50%; background: #2a78d6; color: #fff; font-size: 11px; display: grid; place-items: center; font-weight: 700; }
+.a { grid-template-columns: 1.6fr 1fr; grid-template-rows: 1fr; }
+.a .globe { background: radial-gradient(circle at 50% 50%, #dbe7f7 0 38%, #fafafa 39%); display: flex; flex-direction: column; justify-content: space-between; }
+.a .side { display: grid; grid-template-rows: auto auto auto auto 1fr auto; gap: 6px; }
+.kp { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.b { grid-template-columns: repeat(4, 1fr); grid-template-rows: 40px 70px 1fr 1fr; }
+.notes { font-size: 13.5px; line-height: 1.5; margin: 10px 0 0; padding-left: 18px; }
+.notes li { margin-bottom: 3px; }
+.sys { margin-top: 22px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; font-size: 13px; }
+.sys div { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 10px 12px; line-height: 1.45; }
+.sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 4px; }
+</style></head><body>
+<h1>Orbit Watch · overview wireframes (Block 02, Ex1)</h1>
+<p class="sub">Question the overview answers: which satellites need an avoidance maneuver decision in the next 30 days, and where should I look next?</p>
+<div class="row">
+  <div class="opt chosen"><h2>A · Globe + decision panel <span class="tag">Chosen</span></h2>
+    <div class="frame a">
+      <div class="box globe"><span class="n">5</span><b>3D globe (context, not a KPI)</b>Fleet coloured by worst risk in period · tracked objects · orbit rings. Click a satellite → Level 3 detail.
+        <div class="box" style="background:#fff"><b>Legend + clock + speed</b>High / Medium / Low · UTC time · 10× speed</div></div>
+      <div class="side">
+        <div class="box"><span class="n">1</span><b>Title + data label</b>Real orbits · synthetic events · as of 10 Nov</div>
+        <div class="box"><span class="n">2</span><b>Filters + active-filter chips + Reset</b>Period · Plane · Other object</div>
+        <div class="box"><b>Tabs: Overview | Charts | Top risks</b></div>
+        <div class="box" style="border-color:#c33"><span class="n">3</span><b>Decision line</b>"9 high-risk approaches on 8 satellites await a decision"</div>
+        <div class="kp"><div class="box"><span class="n">4</span><b>KPI</b>per sat / 30 d</div><div class="box"><b>KPI</b>high-risk %</div><div class="box"><b>KPI</b>burns / sat</div><div class="box"><b>KPI</b>expected coll.</div></div>
+        <div class="box"><b>Link → Top risks</b> (most probable list → Level 3)</div>
+      </div>
+    </div>
+    <ul class="notes">
+      <li>Reading order 1→5: scope, then the decision, then KPIs vs last 30 days, then the globe for "where".</li>
+      <li>Trend (weekly bars) and comparison (risk by source) sit one click away in Charts, so the first screen stays focused.</li>
+    </ul>
+  </div>
+  <div class="opt rej"><h2>B · Classic KPI dashboard grid <span class="tag">Rejected</span></h2>
+    <div class="frame b">
+      <div class="box" style="grid-column:1/-1"><b>Header + filters</b></div>
+      <div class="box"><b>KPI</b></div><div class="box"><b>KPI</b></div><div class="box"><b>KPI</b></div><div class="box"><b>KPI</b></div>
+      <div class="box" style="grid-column:1/3"><b>Weekly trend</b></div><div class="box" style="grid-column:3/5"><b>Risk by source</b></div>
+      <div class="box" style="grid-column:1/3"><b>Small 2D map</b></div><div class="box" style="grid-column:3/5"><b>Top 10 table</b></div>
+    </div>
+    <ul class="notes">
+      <li>Rejected: everything has equal weight, so there is no clear "what do I decide" line.</li>
+      <li>Orbits on a flat map are hard to read (polar orbits smear across the map), and the next click (a satellite) is not obvious.</li>
+    </ul>
+  </div>
+</div>
+<div class="sys">
+  <div><b>Charts</b><br/>Weekly bars: question "is risk rising?", x = week, y = count of high + medium, forecast lighter, next click = Top risks.<br/>Source bars: "who causes it?", sorted horizontal bars, value + %.</div>
+  <div><b>Colour roles</b><br/><span class="sw" style="background:#d03b3b"></span>High <span class="sw" style="background:#fab219"></span>Medium <span class="sw" style="background:#9ec5f4"></span>Low<br/><span class="sw" style="background:#3987e5"></span>Data / actual <span class="sw" style="background:#86b6ef"></span>Forecast · colour always paired with a text label</div>
+  <div><b>Type and spacing</b><br/>System sans · title 20 · KPI 24 semibold · labels 12–13 · tabular numbers<br/>8 px spacing grid · 10 px card radius</div>
+  <div><b>Reusable parts</b><br/>KPI card (label, value + unit, delta vs comparison) · chart card (title, one-line hint, summary, data table) · filter chips · empty-state card</div>
+</div>
+</body></html>

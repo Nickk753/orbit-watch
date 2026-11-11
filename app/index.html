@@ -18,7 +18,7 @@
           <span><i class="dot" style="background:var(--warning)"></i>Medium</span>
           <span><i class="dot" style="background:var(--sat-low)"></i>Low / none</span>
           <span><i class="dot small" style="background:var(--debris)"></i>Tracked objects</span>
-          <span>Fleet speed ≈ 7.5 km/s (27,000 km/h)</span>
+          <span class="speed-note">Fleet speed ≈ 7.5 km/s (27,000 km/h)</span>
         </div>
         <div class="clock"><span id="clock">--</span> UTC · <button id="speed" class="link">10× speed</button></div>
       </div>
@@ -45,7 +45,18 @@
             <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option>
           </select>
         </label>
-        <button id="reset" class="link">Reset</button>
+        <label class="select">Other object
+          <select id="objtype">
+            <option value="">All</option>
+            <option value="Debris">Debris</option>
+            <option value="Payload">Payload</option>
+            <option value="Rocket body">Rocket body</option>
+          </select>
+        </label>
+      </div>
+      <div class="active-filters" aria-live="polite">
+        <span class="af-label">Showing</span> <span id="active-chips"></span>
+        <button id="reset" class="link">Reset filters</button>
       </div>
       <p class="period-note" id="period-note"></p>
 
@@ -58,6 +69,16 @@
       <div class="tab" data-t="overview">
       <div id="decision" class="decision"></div>
       <div id="kpis" class="kpis"></div>
+      <details class="defs">
+        <summary>What these numbers mean</summary>
+        <dl>
+          <dt>Close approaches per satellite</dt><dd>Close approaches (under 2 km) in the period ÷ satellites in scope, scaled to 30 days.</dd>
+          <dt>High-risk share</dt><dd>Close approaches with probability of collision (Pc) of 1 in 10,000 or higher ÷ all close approaches.</dd>
+          <dt>Avoidance maneuvers per satellite</dt><dd>Collision-avoidance burns in the period ÷ satellites in scope. Station keeping is excluded.</dd>
+          <dt>Expected collisions</dt><dd>Sum of Pc over all close approaches in scope. 0.0077 means about a 1 in 130 chance of any collision.</dd>
+          <dt>Comparison</dt><dd>Same filters over the 30 days just before the selected period.</dd>
+        </dl>
+      </details>
       <button class="link more" data-go="top">See the most probable close approaches →</button>
       </div>
 
@@ -67,12 +88,16 @@
         <h2>Elevated-risk close approaches per week</h2>
         <p class="hint">High + medium risk (Pc ≥ 1 in 100,000). Lighter bars are the forecast.</p>
         <div id="weekly" class="chart"></div>
+        <p class="chart-summary" id="weekly-summary"></p>
+        <details class="table-alt"><summary>Show data table</summary><div id="weekly-table"></div></details>
       </section>
 
       <section class="card">
         <h2>Where the risk comes from</h2>
         <p class="hint">Elevated-risk close approaches in the selected period, by source of the other object.</p>
         <div id="sources" class="chart"></div>
+        <p class="chart-summary" id="sources-summary"></p>
+        <details class="table-alt"><summary>Show data table</summary><div id="sources-table"></div></details>
       </section>
 
       </div>
