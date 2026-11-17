@@ -4,7 +4,7 @@ import { state, PERIODS, scopeText } from './main.js';
 const $ = (id) => document.getElementById(id);
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const OBJ = ['Debris', 'Payload', 'Rocket body'];
-let current = null; // { tile, scope, link }
+let current = null; // { tile, scope, link, requestId }
 let config = null;
 
 // ----- filters in the URL, so an emailed link opens the same scope -----
@@ -76,7 +76,7 @@ async function loadConfig() {
 function openShare(label) {
   const t = state.kpiTiles?.[label];
   if (!t) return;
-  current = { tile: t, scope: { period: state.period, plane: state.plane, objType: state.objType }, link: scopeLink() };
+  current = { tile: t, scope: { period: state.period, plane: state.plane, objType: state.objType }, link: scopeLink(), requestId: crypto.randomUUID() };
   const d = draft(t);
   $('share-kpi').innerHTML = `${esc(t.label)}: <b>${esc(t.value)}</b> ${esc(t.unit)}`;
   $('share-scope').innerHTML = scopeHtml();
@@ -100,6 +100,7 @@ function review() {
   $('rv-body').textContent = message;
   $('rv-scope').innerHTML = scopeHtml();
   $('rv-link').textContent = current.link;
+  $('rv-req').textContent = current.requestId;
   const allowed = config?.permitted_recipients || [];
   $('rv-warn').textContent = config && !config.configured ? 'Email is not connected: confirming will show the missing settings and send nothing.'
     : allowed.length && !allowed.includes(to.toLowerCase()) ? `${to} is not a permitted test recipient, so the server will refuse it.` : '';
@@ -110,7 +111,7 @@ function review() {
 async function confirmSend() {
   const btn = $('share-confirm');
   btn.disabled = true; btn.textContent = 'Sending…';
-  const body = { confirm: true, to: $('share-to').value.trim(), subject: $('share-subject').value.trim(), message: $('share-message').value.trim(), lab_phrase: $('share-phrase').value, scope: current.scope, link: current.link };
+  const body = { confirm: true, to: $('share-to').value.trim(), subject: $('share-subject').value.trim(), message: $('share-message').value.trim(), lab_phrase: $('share-phrase').value, request_id: current.requestId, scope: current.scope, link: current.link };
   let r, j;
   try { r = await fetch('/api/share-finding', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); j = await r.json().catch(() => ({})); }
   catch (e) { r = { ok: false, status: 0 }; j = { message: `Network error (${e.message}). The request may not have reached the server; check Resend's Emails log before trying again.` }; }
@@ -119,10 +120,10 @@ async function confirmSend() {
   if (r.ok && j.ok) {
     out.className = 'result ok';
     out.innerHTML = `<b>Accepted by Resend.</b> This means the provider took the email, not yet that it reached the inbox.
-      <dl><dt>Request ID</dt><dd><code id="sent-id">${esc(j.id)}</code></dd><dt>To</dt><dd>${esc(j.to)}</dd><dt>From</dt><dd>${esc(j.from)}</dd>
+      <dl><dt>Resend email ID</dt><dd><code id="sent-id">${esc(j.id)}</code></dd><dt>Action request</dt><dd><code>${esc(j.request_id)}</code></dd><dt>To</dt><dd>${esc(j.to)}</dd><dt>From</dt><dd>${esc(j.from)}</dd>
       <dt>Subject</dt><dd>${esc(j.subject)}</dd><dt>Scope</dt><dd>${esc(j.scope)}</dd><dt>Sent</dt><dd>${esc(new Date(j.sent_at).toUTCString())}</dd></dl>
       <button type="button" class="btn" id="share-verify">Read it back from Resend</button> <span id="verify-out" class="hint"></span>
-      <p class="hint">Then open the permitted inbox and match the subject and the request ID above.</p>`;
+      <p class="hint">Then open the permitted inbox and match the subject and the action request ID (it is printed in the email footer).</p>`;
     $('share-verify').onclick = () => verify(j.id);
   } else {
     out.className = 'result bad';

@@ -3,14 +3,16 @@
 // Runs on Vercel as a server function, so secrets stay on the server and never reach the browser.
 // Server settings (enter them yourself in Vercel → Project → Settings → Environment Variables):
 //   RESEND_API_KEY            your Resend API key (Full access lets the app also read the email back)
-//   LAB_ACCESS_KEY            a lab phrase you choose; the dialog asks for it before any send
-//   EMAIL_ALLOWED_RECIPIENTS  comma-separated permitted test recipients (with onboarding@resend.dev:
-//                             only the address your Resend account was created with)
+//   LAB_ACCESS_KEY            a random lab password (32–256 characters); the dialog asks for it before any send
+//   LAB_EMAIL_TO              the permitted test recipient: the address your Resend account was created with
+//                             (onboarding@resend.dev can only deliver there). Comma-separate to permit several.
 //   EMAIL_FROM                optional, defaults to "Orbit Watch <onboarding@resend.dev>"
 //
 // GET  /api/share-finding           → redacted connection check (never returns key values)
 // GET  /api/share-finding?id=<id>   → read the sent email back from Resend (status, to, subject)
 // POST /api/share-finding           → send one email after explicit confirmation
+
+import { createHash, timingSafeEqual } from 'node:crypto';
 
 const RESEND = 'https://api.resend.com';
 const SB_URL = process.env.VITE_SUPABASE_URL || 'https://xglluiuymeqzlykvauft.supabase.co';
@@ -24,17 +26,21 @@ const OBJ = ['Debris', 'Payload', 'Rocket body'];
 const env = () => ({
   key: process.env.RESEND_API_KEY || '',
   lab: process.env.LAB_ACCESS_KEY || '',
-  allowed: (process.env.EMAIL_ALLOWED_RECIPIENTS || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean),
+  allowed: (process.env.LAB_EMAIL_TO || process.env.EMAIL_ALLOWED_RECIPIENTS || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean),
   from: process.env.EMAIL_FROM || 'Orbit Watch <onboarding@resend.dev>',
 });
-const missing = (e) => [!e.key && 'RESEND_API_KEY', !e.lab && 'LAB_ACCESS_KEY', !e.allowed.length && 'EMAIL_ALLOWED_RECIPIENTS'].filter(Boolean);
+const labOk = (e) => e.lab.length >= 32 && e.lab.length <= 256;
+const missing = (e) => [!e.key && 'RESEND_API_KEY', !labOk(e) && 'LAB_ACCESS_KEY', !e.allowed.length && 'LAB_EMAIL_TO'].filter(Boolean);
+const sha = (t) => createHash('sha256').update(String(t)).digest();
+const phraseOk = (e, given) => labOk(e) && typeof given === 'string' && timingSafeEqual(sha(given), sha(e.lab));
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const resend = (path, e, init = {}) => fetch(`${RESEND}${path}`, { ...init, headers: { Authorization: `Bearer ${e.key}`, 'Content-Type': 'application/json', ...(init.headers || {}) } });
 const send = (res, code, body) => { res.status(code).setHeader('Cache-Control', 'no-store'); res.json(body); };
 
 async function check(res) {
   const e = env();
   const miss = missing(e);
-  const out = { configured: miss.length === 0, missing: miss, sender: e.from, permitted_recipients: e.allowed, key: e.key ? 'set (value hidden)' : 'missing', lab_phrase: e.lab ? 'set (value hidden)' : 'missing' };
+  const out = { configured: miss.length === 0, missing: miss, sender: e.from, permitted_recipients: e.allowed, key: e.key ? 'set (value hidden)' : 'missing', lab_phrase: labOk(e) ? 'set (value hidden)' : e.lab ? 'too short or too long (needs 32–256 characters)' : 'missing' };
   if (!e.key) return send(res, 200, { ...out, provider: 'not checked: no key' });
   // Ask Resend whether the key works and what it may do. Listing emails needs a Full-access key;
   // a Sending-access key is refused with "restricted_api_key" (it can still send, but not read back).
@@ -73,9 +79,10 @@ async function post(req, res) {
   if (miss.length) return send(res, 503, { error: 'not_configured', missing: miss, message: `Email is not connected yet. Add ${miss.join(', ')} in Vercel (Settings → Environment Variables), then redeploy. Nothing was sent.` });
   const b = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
   if (!b.confirm) return send(res, 400, { error: 'not_confirmed', message: 'Review and confirm the email first. Nothing was sent.' });
-  if (b.lab_phrase !== e.lab) return send(res, 401, { error: 'bad_lab_phrase', message: 'The lab phrase is not correct. Nothing was sent.' });
+  if (!UUID.test(String(b.request_id || ''))) return send(res, 400, { error: 'bad_request_id', message: 'Missing request ID. Nothing was sent.' });
+  if (!phraseOk(e, b.lab_phrase)) return send(res, 401, { error: 'bad_lab_phrase', message: 'The lab phrase is not correct. Nothing was sent.' });
   const to = String(b.to || '').trim().toLowerCase();
-  if (!e.allowed.includes(to)) return send(res, 403, { error: 'recipient_not_permitted', message: `“${to || '(empty)'}” is not a permitted test recipient. The test sender can only deliver to addresses in EMAIL_ALLOWED_RECIPIENTS. Nothing was sent.` });
+  if (!e.allowed.includes(to)) return send(res, 403, { error: 'recipient_not_permitted', message: `“${to || '(empty)'}” is not a permitted test recipient. The test sender can only deliver to LAB_EMAIL_TO. Nothing was sent.` });
   const subject = String(b.subject || '').trim().slice(0, 200);
   const text = String(b.message || '').trim().slice(0, 5000);
   if (!subject || !text) return send(res, 400, { error: 'empty', message: 'Subject and message are required. Nothing was sent.' });
@@ -89,6 +96,7 @@ async function post(req, res) {
     '',
     '— Data snapshot read by the server at send time —',
     `Scope: ${scopeLine}`,
+    `Action request: ${b.request_id}`,
     `Close approaches: ${k.conjunctions} on ${k.satellites_in_scope} satellites (${k.conjunctions_per_sat_30d} per satellite per 30 days)`,
     `High-risk share: ${k.high_risk_share_pct}% (${k.high_risk} events, Pc ≥ 1 in 10,000)`,
     `Avoidance maneuvers per satellite: ${k.avoidance_maneuvers_per_sat} (${k.avoidance_maneuvers} burns)`,
@@ -97,10 +105,10 @@ async function post(req, res) {
     b.link ? `Open this view: ${String(b.link).slice(0, 300)}` : '',
   ].filter((x) => x !== '').join('\n');
 
-  const r = await resend('/emails', e, { method: 'POST', body: JSON.stringify({ from: e.from, to: [to], subject, text: `${text}\n${footer}` }) });
+  const r = await resend('/emails', e, { method: 'POST', headers: { 'Idempotency-Key': `orbit-watch-email/${b.request_id}` }, body: JSON.stringify({ from: e.from, to: [to], subject, text: `${text}\n${footer}` }) });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) return send(res, r.status, { error: j.name || 'provider_error', message: `Resend refused the email: ${j.message || `HTTP ${r.status}`}. Nothing was sent.` });
-  return send(res, 200, { ok: true, id: j.id, to, from: e.from, subject, scope: scopeLine, snapshot: k, sent_at: new Date().toISOString() });
+  return send(res, 200, { ok: true, id: j.id, request_id: b.request_id, to, from: e.from, subject, scope: scopeLine, snapshot: k, sent_at: new Date().toISOString() });
 }
 
 export default async function handler(req, res) {
