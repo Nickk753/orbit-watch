@@ -41,7 +41,7 @@ a { color: var(--sat-low); }
 .clock { background: rgba(5,7,12,0.6); padding: 6px 10px; border-radius: 8px; font-variant-numeric: tabular-nums; }
 .link { background: none; border: 0; padding: 0; color: var(--sat-low); text-decoration: underline; text-underline-offset: 2px; }
 
-.selection { position: absolute; top: 14px; left: 16px; max-width: 360px; background: rgba(18,20,26,0.92); border: 1px solid var(--ring); border-radius: 10px; padding: 12px 14px; font-size: 13px; line-height: 1.45; }
+.selection { position: absolute; top: 14px; left: 16px; max-width: 360px; background: rgba(18,20,26,0.92); border: 1px solid var(--ring); border-radius: 10px; padding: 12px 14px; font-size: 13px; line-height: 1.45; max-height: calc(100% - 70px); overflow-y: auto; }
 .selection h3 { margin: 0 0 4px; font-size: 15px; }
 .selection .crumbs { color: var(--muted); font-size: 12px; margin-bottom: 6px; }
 .selection dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 6px 0 8px; }
@@ -219,3 +219,17 @@ dialog#share::backdrop, dialog.act::backdrop { background: rgba(0,0,0,.6); }
 .result dt { color: var(--muted); } .result dd { margin: 0; overflow-wrap: anywhere; }
 .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 60; background: #20242d; border: 1px solid var(--axis); padding: 8px 14px; border-radius: 8px; font-size: 13px; }
 .menu-h { margin: 4px 10px 4px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+/* ---------- Session 03 · record actions ---------- */
+.cell-edit { background: #1f2a3a; border: 1px dashed #2f4566; border-radius: 6px; padding: 1px 6px; font: inherit; font-variant-numeric: tabular-nums; color: var(--ink); text-align: left; }
+.cell-edit:hover { border-style: solid; background: #263449; }
+.row-menu-btn { background: var(--surface-2); border: 1px solid var(--axis); border-radius: 6px; padding: 0 8px; margin-left: 6px; line-height: 1.4; }
+.audit, .corr-log { font-size: 12px; line-height: 1.45; margin: 6px 0; padding: 8px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--ring); color: var(--ink-2); }
+.corr-log div { margin-top: 3px; }
+.tag.syn { display: inline-block; font-size: 10px; text-transform: uppercase; letter-spacing: .4px; background: #2a2412; color: #f3d27a; border: 1px solid #6d5a1d; border-radius: 999px; padding: 0 6px; margin-right: 4px; }
+.inline-edit { margin: 8px 0; }
+.inline-edit label { display: block; font-size: 12px; color: var(--ink-2); margin-bottom: 6px; }
+.inline-edit input, .inline-edit textarea { display: block; width: 100%; margin-top: 3px; background: var(--surface-2); color: var(--ink); border: 1px solid var(--axis); border-radius: 6px; padding: 5px 7px; font: inherit; font-size: 13px; }
+table.pred { width: 100%; border-collapse: collapse; font-size: 12px; margin: 6px 0; }
+table.pred th, table.pred td { padding: 4px 6px; border-bottom: 1px solid var(--ring); text-align: left; }
+table.pred .n { text-align: right; font-variant-numeric: tabular-nums; }
+.sub-h { font-size: 13px; margin: 12px 0 4px; }

@@ -3,7 +3,8 @@ import * as THREE from 'three';
 import * as sat from 'satellite.js';
 import { bindShare, readUrlScope } from './share.js';
 import { bindTrello, openSegMenu } from './trello.js';
-export { state, PERIODS, scopeText };
+import { bindRecord, decorateRecord } from './record.js';
+export { state, PERIODS, scopeText, kpi, oneIn, reloadData, select, DATA_ref };
 
 // ---------- config ----------
 // Publishable key: read-only by row-level security (inserts are refused), safe in the browser.
@@ -20,6 +21,8 @@ const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v
 
 const state = { period: 'next30', plane: null, objType: null, selSat: null, selConj: null, speed: 10 };
 let DATA = null;
+const DATA_ref = () => DATA;
+async function reloadData() { DATA = await load(); await renderAll(); }
 
 // ---------- data ----------
 const H = { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` };
@@ -46,7 +49,8 @@ async function load() {
   const [sats, objs, conj] = await Promise.all([
     getAll(`dim_satellite?select=satellite_id,name,plane,role,mean_altitude_km,${ELEM}&order=satellite_id`),
     getAll(`dim_object?select=object_id,name,object_type,source_group,${ELEM}&order=object_id`),
-    getAll('v_conjunction?select=conjunction_id,satellite_id,object_id,tca_utc,tca_date,miss_distance_m,relative_velocity_kms,pc,risk_tier,status,plane,source_group,object_name,object_type&order=conjunction_id'),
+    getAll('v_conjunction?select=conjunction_id,satellite_id,object_id,tca_utc,tca_date,miss_distance_m,relative_velocity_kms,pc,risk_tier,status,plane,source_group,object_name,object_type,revision&order=conjunction_id')
+      .catch(() => getAll('v_conjunction?select=conjunction_id,satellite_id,object_id,tca_utc,tca_date,miss_distance_m,relative_velocity_kms,pc,risk_tier,status,plane,source_group,object_name,object_type&order=conjunction_id')),
   ]);
   const satrec = (r, id) => sat.json2satrec({
     OBJECT_NAME: r.name, OBJECT_ID: String(id), EPOCH: r.epoch, MEAN_MOTION: r.mean_motion, ECCENTRICITY: r.eccentricity,
@@ -401,13 +405,15 @@ function renderSelection() {
     <h3>${c ? `${s.name} × ${c.object_name}` : s.name}</h3>
     ${c ? `<dl><dt>Speed now</dt><dd id="live-speed">–</dd><dt>Closest approach</dt><dd>${c.tca_utc.replace('T', ' ').slice(0, 16)} UTC</dd>
       <dt>Miss distance</dt><dd>${fmt(c.miss_distance_m, 0)} m</dd><dt>Closing speed</dt><dd>${fmt(c.relative_velocity_kms, 1)} km/s</dd>
-      <dt>Probability</dt><dd>${oneIn(c.pc)} (${c.risk_tier})</dd><dt>Other object</dt><dd>${c.object_type}, ${c.source_group}</dd>
-      <dt>Status</dt><dd>${c.status}</dd></dl>`
+      <dt>Probability (Pc)</dt><dd><button type="button" class="cell-edit" id="pc-cell" title="Click to correct this value">${Number(c.pc).toPrecision(5)} · ${oneIn(c.pc)} (${c.risk_tier}) ✎</button></dd><dt>Other object</dt><dd>${c.object_type}, ${c.source_group}</dd>
+      <dt>Status</dt><dd>${c.status}</dd><dt>Record</dt><dd>${c.conjunction_id}${c.revision != null ? ` · revision ${c.revision}` : ''} <button type="button" class="row-menu-btn" id="rec-menu-btn" aria-haspopup="menu" title="Record actions">⋯</button></dd></dl>
+      <div id="rec-extra"></div>`
       : `<dl><dt>Speed now</dt><dd id="live-speed">–</dd><dt>Role</dt><dd>${s.role}, ${fmt(s.mean_altitude_km, 0)} km</dd><dt>${p.label}</dt><dd>${evs.length} close approaches: ${hi} high, ${med} medium</dd></dl>`}
     <button class="link" id="sel-clear">Back to fleet</button>`;
   el.classList.remove('hidden');
   updateSlowLayers();
   document.getElementById('sel-clear').onclick = () => select({});
+  if (c) decorateRecord(c, s);
 }
 
 function showTab(t) {
@@ -465,6 +471,7 @@ function bindUi() {
   document.getElementById('weekly').addEventListener('click', () => go('why'));
   bindShare();
   bindTrello();
+  bindRecord();
 }
 
 async function start() {

@@ -202,6 +202,41 @@
       <div class="actions"><button type="button" class="btn" id="as-done">Done</button></div>
     </div>
   </dialog>
+  <div id="rec-menu" class="menu hidden" role="menu" aria-label="Record actions">
+    <button type="button" role="menuitem" id="rec-menu-edit">✎ Correct Pc value</button>
+    <button type="button" role="menuitem" id="rec-menu-issue">🐞 Report data issue</button>
+  </div>
+
+  <dialog id="correct" class="act" aria-labelledby="cr-heading">
+    <h2 id="cr-heading">Review the correction</h2>
+    <p class="hint">Nothing is saved until you confirm. The server checks your lab phrase, and the database checks that the value and revision are still the ones you read.</p>
+    <div id="cr-body"></div>
+    <div class="actions" id="cr-actions"><button type="button" class="btn ghost" id="cr-cancel">Cancel</button><button type="button" class="btn ghost" id="cr-back">← Edit</button><button type="button" class="btn" id="cr-confirm">Confirm and save</button></div>
+    <div id="cr-out" class="hidden"></div>
+    <div class="actions"><button type="button" class="btn" id="cr-done">Done</button></div>
+  </dialog>
+
+  <dialog id="issue" class="act" aria-labelledby="is-heading">
+    <h2 id="is-heading">Report data issue on GitHub</h2>
+    <p class="share-kpi" id="is-rec"></p>
+    <div id="is-conn" class="conn"></div>
+    <div id="is-edit">
+      <label>Issue title <input id="is-title" type="text" maxlength="200" /></label>
+      <label>Description <textarea id="is-desc" rows="12" maxlength="8000"></textarea></label>
+      <p class="hint">The server appends the record as stored now (Pc, tier, revision, last correction, audit note), a link and the request ID.</p>
+      <label>Lab phrase <input id="is-phrase" type="password" autocomplete="off" /></label>
+      <p class="err" id="is-err"></p>
+      <div class="actions"><button type="button" class="btn ghost" data-is-cancel>Cancel</button><button type="button" class="btn" id="is-review-btn">Review issue →</button></div>
+    </div>
+    <div id="is-review" class="hidden">
+      <p class="hint">Check the exact issue before it is opened. Nothing has been created yet.</p>
+      <dl class="review"><dt>Destination</dt><dd id="isr-dest"></dd><dt>Title</dt><dd id="isr-title"></dd><dt>Record</dt><dd id="isr-rec"></dd><dt>Request ID</dt><dd id="isr-req" class="mono"></dd></dl>
+      <pre id="isr-desc" class="rv-body"></pre>
+      <p class="hint">+ server record snapshot.</p>
+      <div class="actions"><button type="button" class="btn ghost" data-is-cancel>Cancel</button><button type="button" class="btn ghost" id="is-back">← Edit</button><button type="button" class="btn" id="is-confirm">Confirm and open issue</button></div>
+    </div>
+    <div id="is-result" class="hidden"><div id="is-out" class="result"></div><div class="actions"><button type="button" class="btn" id="is-done">Done</button></div></div>
+  </dialog>
   <div id="share-toast" class="toast hidden" role="status"></div>
   <script type="module" src="/src/main.js"></script>
 </body>
