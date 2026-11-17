@@ -2,6 +2,7 @@ import Globe from 'globe.gl';
 import * as THREE from 'three';
 import * as sat from 'satellite.js';
 import { bindShare, readUrlScope } from './share.js';
+import { bindTrello, openSegMenu } from './trello.js';
 export { state, PERIODS, scopeText };
 
 // ---------- config ----------
@@ -463,6 +464,7 @@ function bindUi() {
   document.getElementById('sources').addEventListener('click', () => go('why'));
   document.getElementById('weekly').addEventListener('click', () => go('why'));
   bindShare();
+  bindTrello();
 }
 
 async function start() {
@@ -571,10 +573,16 @@ async function renderWhere() {
       <tbody>${rows.map((r) => `<tr><td>${r.pl}</td><td class="n">${r.n}</td><td class="n">${r.ca}</td><td class="n">${fmt(r.ca / r.n, 2)}</td><td class="n">${r.el}</td><td class="n">${r.hi}</td><td class="n">${fmt(r.rate, 2)}</td><td class="n">${fmt(r.rateCmp, 2)}</td><td class="n">${Math.round((100 * r.el) / EL)}%</td><td class="n">${Math.round((100 * r.n) / N)}%</td><td class="n">${fmt(r.pc, 4)}</td></tr>`).join('')}
       <tr class="tot"><td>Fleet</td><td class="n">${N}</td><td class="n">${CA}</td><td class="n">${fmt(CA / N, 2)}</td><td class="n">${EL}</td><td class="n">${rows.reduce((a, r) => a + r.hi, 0)}</td><td class="n">${fmt(fleetRate, 2)}</td><td class="n">${fmt(ELC / N, 2)}</td><td class="n">100%</td><td class="n">100%</td><td class="n">${fmt(rows.reduce((a, r) => a + r.pc, 0), 4)}</td></tr></tbody></table></details>
     <section class="card sats-card" id="sats-card"></section>`;
-  el.querySelectorAll('.plane-row').forEach((b) => b.addEventListener('click', () => {
-    state.focusPlane = state.focusPlane === +b.dataset.pl ? null : +b.dataset.pl;
-    renderWhere(); updateOrbits(); updatePositions();
-    const t = document.querySelector(`.plane-row[data-pl="${b.dataset.pl}"]`); if (t) t.focus({ preventScroll: true });
+  el.querySelectorAll('.plane-row').forEach((b) => b.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    const r = rows.find((x) => x.pl === +b.dataset.pl);
+    const explore = () => {
+      state.focusPlane = +b.dataset.pl;
+      renderWhere(); updateOrbits(); updatePositions();
+      const t = document.querySelector(`.plane-row[data-pl="${b.dataset.pl}"]`); if (t) t.focus({ preventScroll: true });
+      document.getElementById('sats-card')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    };
+    openSegMenu(b, { kind: 'plane', value: r.pl, period: state.period, objType: state.objType, stats: `${r.el} elevated-risk close approaches (${r.hi} high) on ${r.n} satellites, ${fmt(r.rate, 1)} per satellite vs fleet ${fmt(fleetRate, 1)}` }, explore);
   }));
   renderPlaneSats();
   try {
@@ -662,9 +670,15 @@ function renderWhy() {
       <p><span class="tag ag">Evidence against</span>The previous window already had ${pv.el} (${fmt(pv.per100, 1)} per 100), so against that the rise is only ${pct(nx.el, pv.el)}: the last 30 days may just have been quiet. The rate rose for ${rising} of ${big} large sources, so it is not specific to one debris cloud.</p>
       <p><span class="tag nxt">Limitation · next evidence</span>Three windows are too few to call a trend, and close approaches here are synthetic random draws. Forecast Pc also changes as new tracking shrinks the uncertainty. Next: re-run with fresh tracking and 6+ months of history. This is an association, not a cause.</p>
     </section>`;
-  el.querySelectorAll('.src-row').forEach((b) => b.addEventListener('click', () => {
-    state.whySource = state.whySource === b.dataset.s ? null : b.dataset.s; renderWhy();
-    const t = document.querySelector(`.src-row[data-s="${CSS.escape(b.dataset.s)}"]`); if (t) t.focus({ preventScroll: true });
+  el.querySelectorAll('.src-row').forEach((b) => b.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    const s = b.dataset.s, n = nx.src.get(s) || { ca: 0, el: 0 }, l = ls.src.get(s) || { ca: 0, el: 0 };
+    const explore = () => {
+      state.whySource = s; renderWhy();
+      const t = document.querySelector(`.src-row[data-s="${CSS.escape(s)}"]`); if (t) t.focus({ preventScroll: true });
+      document.getElementById('src-events')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    };
+    openSegMenu(b, { kind: 'source', value: s, label: srcLabel(s), plane: state.plane, period: 'next30', objType: state.objType, stats: `${n.el} elevated-risk of ${n.ca} close approaches (${fmt(per(nx, s), 1)} per 100, was ${fmt(per(ls, s), 1)} last 30 days: ${l.el} of ${l.ca})` }, explore);
   }));
   if (sel) {
     const p = PERIODS.next30;

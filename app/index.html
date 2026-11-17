@@ -170,6 +170,38 @@
       <div class="actions"><button type="button" class="btn" id="share-done">Done</button></div>
     </div>
   </dialog>
+  <div id="seg-menu" class="menu hidden" role="menu" aria-label="Segment actions">
+    <p class="menu-h"></p>
+    <button type="button" role="menuitem" id="seg-menu-explore">🔍 Explore</button>
+    <button type="button" role="menuitem" id="seg-menu-assign">📋 Assign investigation</button>
+  </div>
+
+  <dialog id="assign" class="act" aria-labelledby="as-heading">
+    <h2 id="as-heading">Assign investigation in Trello</h2>
+    <p class="share-kpi" id="as-seg"></p>
+    <p class="share-scope">Scope: <span id="as-scope"></span></p>
+    <div id="as-conn" class="conn"></div>
+    <div id="as-edit">
+      <label>Card title <input id="as-title" type="text" maxlength="200" /></label>
+      <label>Description <textarea id="as-desc" rows="10" maxlength="6000"></textarea></label>
+      <p class="hint">The server appends a segment snapshot (counts re-read from the database, the 5 riskiest record IDs), a link back to this segment and the request ID.</p>
+      <label>Lab phrase <input id="as-phrase" type="password" autocomplete="off" placeholder="entered by you, checked on the server" /></label>
+      <p class="err" id="as-err" role="alert"></p>
+      <div class="actions"><button type="button" class="btn ghost" data-as-cancel>Cancel</button><button type="button" class="btn" id="as-review-btn">Review card →</button></div>
+    </div>
+    <div id="as-review" class="hidden">
+      <p class="hint">Check the exact card before it is created. Nothing has been created yet.</p>
+      <dl class="review"><dt>Destination</dt><dd id="asr-dest"></dd><dt>Title</dt><dd id="asr-title"></dd><dt>Segment</dt><dd id="asr-scope"></dd><dt>Link</dt><dd id="asr-link" class="mono"></dd><dt>Request ID</dt><dd id="asr-req" class="mono"></dd></dl>
+      <pre id="asr-desc" class="rv-body"></pre>
+      <p class="hint">+ server segment snapshot with record IDs.</p>
+      <p class="err" id="asr-warn"></p>
+      <div class="actions"><button type="button" class="btn ghost" data-as-cancel>Cancel</button><button type="button" class="btn ghost" id="as-back">← Edit</button><button type="button" class="btn" id="as-confirm">Confirm and create card</button></div>
+    </div>
+    <div id="as-result" class="hidden">
+      <div id="as-out" class="result"></div>
+      <div class="actions"><button type="button" class="btn" id="as-done">Done</button></div>
+    </div>
+  </dialog>
   <div id="share-toast" class="toast hidden" role="status"></div>
   <script type="module" src="/src/main.js"></script>
 </body>
