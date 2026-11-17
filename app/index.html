@@ -133,6 +133,44 @@
   <div id="loading" class="overlay"><div class="spinner"></div><p>Loading orbits and close approaches…</p></div>
   <div id="error" class="overlay hidden"><p id="error-msg"></p><button id="retry">Try again</button></div>
   <div id="tip" class="tip hidden" role="tooltip"></div>
+  <div id="kpi-menu" class="menu hidden" role="menu" aria-label="KPI actions">
+    <button type="button" role="menuitem" id="kpi-menu-share">✉ Share finding</button>
+    <button type="button" role="menuitem" id="kpi-menu-defs">ⓘ What this means</button>
+  </div>
+
+  <dialog id="share" aria-labelledby="share-title">
+    <h2 id="share-title">Share finding by email</h2>
+    <p class="share-kpi" id="share-kpi"></p>
+    <p class="share-scope">Scope: <span id="share-scope"></span></p>
+    <div id="share-conn" class="conn"></div>
+
+    <div id="share-edit">
+      <label>To <input id="share-to" type="email" autocomplete="off" placeholder="permitted test recipient" /></label>
+      <label>Subject <input id="share-subject" type="text" maxlength="200" /></label>
+      <label>Message <textarea id="share-message" rows="9" maxlength="5000"></textarea></label>
+      <p class="hint">The server adds a fixed data snapshot (figures re-read from the database for this scope) and a link back to this view below your message.</p>
+      <label>Lab phrase <input id="share-phrase" type="password" autocomplete="off" placeholder="entered by you, checked on the server" /></label>
+      <p class="err" id="share-err" role="alert"></p>
+      <div class="actions"><button type="button" class="btn ghost" data-share-cancel>Cancel</button><button type="button" class="btn" id="share-review-btn">Review email →</button></div>
+    </div>
+
+    <div id="share-review" class="hidden">
+      <p class="hint">Check the exact email before it is sent. Nothing has been sent yet.</p>
+      <dl class="review">
+        <dt>To</dt><dd id="rv-to"></dd><dt>From</dt><dd id="rv-from"></dd><dt>Subject</dt><dd id="rv-subject"></dd><dt>Scope</dt><dd id="rv-scope"></dd><dt>Link</dt><dd id="rv-link" class="mono"></dd>
+      </dl>
+      <pre id="rv-body" class="rv-body"></pre>
+      <p class="hint">+ server data snapshot for this scope.</p>
+      <p class="err" id="rv-warn"></p>
+      <div class="actions"><button type="button" class="btn ghost" data-share-cancel>Cancel</button><button type="button" class="btn ghost" id="share-back">← Edit</button><button type="button" class="btn" id="share-confirm">Confirm and send</button></div>
+    </div>
+
+    <div id="share-result" class="hidden">
+      <div id="share-out" class="result"></div>
+      <div class="actions"><button type="button" class="btn" id="share-done">Done</button></div>
+    </div>
+  </dialog>
+  <div id="share-toast" class="toast hidden" role="status"></div>
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>

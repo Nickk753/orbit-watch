@@ -1,6 +1,8 @@
 import Globe from 'globe.gl';
 import * as THREE from 'three';
 import * as sat from 'satellite.js';
+import { bindShare, readUrlScope } from './share.js';
+export { state, PERIODS, scopeText };
 
 // ---------- config ----------
 // Publishable key: read-only by row-level security (inserts are refused), safe in the browser.
@@ -254,10 +256,11 @@ async function renderKpis() {
   box.innerHTML = tiles.map(([label, v, c, d, unit, foot]) => {
     const diff = v != null && c != null ? Number(v) - Number(c) : null;
     const arrow = diff == null ? '' : diff > 0 ? '▲' : diff < 0 ? '▼' : '■';
-    return `<div class="kpi" title="${foot}"><div class="label">${label}</div>
+    return `<button type="button" class="kpi" data-kpi="${label}" title="${foot}" aria-haspopup="menu"><div class="label">${label}</div>
       <div class="value">${fmt(v, d)} <span class="unit">${unit}</span></div>
-      <div class="delta">${arrow} ${diff == null ? '–' : fmt(Math.abs(diff), d)} vs ${p.cmpLabel} (${fmt(c, d)})</div></div>`;
+      <div class="delta">${arrow} ${diff == null ? '–' : fmt(Math.abs(diff), d)} vs ${p.cmpLabel} (${fmt(c, d)})</div></button>`;
   }).join('');
+  state.kpiTiles = Object.fromEntries(tiles.map(([label, v, c, d, unit, foot]) => [label, { label, value: fmt(v, d), unit, cmp: fmt(c, d), cmpLabel: p.cmpLabel, foot, dir: Number(v) > Number(c) ? 'up' : Number(v) < Number(c) ? 'down' : 'unchanged' }]));
 }
 
 function renderDecision() {
@@ -459,12 +462,14 @@ function bindUi() {
   document.querySelectorAll('[data-go-view]').forEach((b) => b.addEventListener('click', () => go(b.dataset.goView)));
   document.getElementById('sources').addEventListener('click', () => go('why'));
   document.getElementById('weekly').addEventListener('click', () => go('why'));
+  bindShare();
 }
 
 async function start() {
   document.getElementById('error').classList.add('hidden');
   document.getElementById('loading').classList.remove('hidden');
   try {
+    readUrlScope();
     DATA = await load();
     if (!world) { initGlobe(); bindUi(); requestAnimationFrame(animate); setInterval(updateSlowLayers, 1000); setInterval(updateParticles, 200); setInterval(updateOrbits, 30000); }
     await renderAll();
@@ -495,7 +500,7 @@ function go(view, push = true) {
   if (!VIEWS[view]) view = 'overview';
   const was = state.view;
   state.view = view;
-  if (push && was !== view) history.pushState({ view }, '', view === 'overview' ? location.pathname : `#${view}`);
+  if (push && was !== view) history.pushState({ view }, '', view === 'overview' ? location.pathname + location.search : `${location.search}#${view}`);
   ['overview', 'where', 'why'].forEach((v) => document.getElementById(`view-${v}`).classList.toggle('hidden', v !== view));
   document.getElementById('app').classList.toggle('wide', view !== 'overview');
   const cr = document.getElementById('crumbs');

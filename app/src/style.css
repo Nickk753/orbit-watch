@@ -184,3 +184,37 @@ button:focus-visible, select:focus-visible, summary:focus-visible, a:focus-visib
   .trio-row { grid-template-columns: 1fr 96px; }
   .win-grid { font-size: 12px; } .win-grid > div { padding: 6px 7px; }
 }
+
+/* ---------- Session 03 · Share finding (email) ---------- */
+button.kpi { text-align: left; width: 100%; cursor: pointer; font: inherit; color: inherit; }
+button.kpi:hover { border-color: #2f4566; background: #1f2530; }
+.menu { position: fixed; z-index: 50; min-width: 200px; background: #20242d; border: 1px solid var(--axis); border-radius: 8px; padding: 4px; box-shadow: 0 8px 24px rgba(0,0,0,.5); }
+.menu button { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 8px 10px; border-radius: 6px; font-size: 13px; }
+.menu button:hover, .menu button:focus-visible { background: #2a2f3a; }
+dialog#share { width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow-y: auto; background: var(--surface); color: var(--ink); border: 1px solid var(--axis); border-radius: 12px; padding: 18px 20px; }
+dialog#share::backdrop { background: rgba(0,0,0,.6); }
+#share h2 { margin: 0 0 6px; font-size: 18px; }
+.share-kpi { margin: 0; font-size: 14px; }
+.share-scope { margin: 4px 0 10px; font-size: 13px; color: var(--ink-2); }
+.conn { font-size: 12px; line-height: 1.5; border-radius: 8px; padding: 8px 10px; margin-bottom: 12px; background: var(--surface-2); border: 1px solid var(--ring); color: var(--ink-2); }
+.conn.ok { border-color: rgba(12,163,12,.5); background: rgba(12,163,12,.08); }
+.conn.warn { border-color: rgba(250,178,25,.5); background: rgba(250,178,25,.08); }
+#share label { display: block; font-size: 12px; color: var(--ink-2); margin-bottom: 10px; }
+#share input, #share textarea { display: block; width: 100%; margin-top: 4px; background: var(--surface-2); color: var(--ink); border: 1px solid var(--axis); border-radius: 6px; padding: 7px 8px; font: inherit; font-size: 13px; }
+#share textarea { resize: vertical; line-height: 1.45; }
+.actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.btn { background: var(--accent); border: 0; color: #fff; padding: 8px 14px; border-radius: 8px; font-size: 13px; }
+.btn.ghost { background: none; border: 1px solid var(--axis); color: var(--ink); }
+.btn:disabled { opacity: .6; cursor: wait; }
+.err { color: #f08a8a; font-size: 12px; min-height: 0; margin: 4px 0 0; }
+.review { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 13px; margin: 8px 0; }
+.review dt { color: var(--muted); }
+.review dd { margin: 0; overflow-wrap: anywhere; }
+.mono, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+.rv-body { white-space: pre-wrap; background: var(--surface-2); border: 1px solid var(--ring); border-radius: 8px; padding: 10px; font: inherit; font-size: 13px; line-height: 1.45; margin: 0; }
+.result { font-size: 13px; line-height: 1.5; border-radius: 8px; padding: 10px 12px; }
+.result.ok { border: 1px solid rgba(12,163,12,.5); background: rgba(12,163,12,.08); }
+.result.bad { border: 1px solid rgba(208,59,59,.5); background: rgba(208,59,59,.10); }
+.result dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 8px 0; }
+.result dt { color: var(--muted); } .result dd { margin: 0; overflow-wrap: anywhere; }
+.toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 60; background: #20242d; border: 1px solid var(--axis); padding: 8px 14px; border-radius: 8px; font-size: 13px; }
